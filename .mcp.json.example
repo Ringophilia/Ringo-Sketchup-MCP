@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "sketchup": {
+      "command": "/absolute/path/to/node",
+      "args": ["/absolute/path/to/Ringo-Sketchup-MCP/dist/mcp-server.js"]
+    }
+  }
+}

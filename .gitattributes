@@ -1,0 +1,4 @@
+* text=auto eol=lf
+*.skp binary
+*.png binary
+*.rbz binary

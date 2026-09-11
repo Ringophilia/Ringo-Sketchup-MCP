@@ -1,0 +1,15 @@
+node_modules/
+dist/
+release/
+.env
+*.log
+*.skb
+artifacts/
+.local-examples/
+*.skp
+*.dae
+*.rbz
+.agent-config/
+.env.*
+!.env.example
+.DS_Store

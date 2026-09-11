@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "sketchup": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/dist/mcp-server.js"]
+    }
+  }
+}

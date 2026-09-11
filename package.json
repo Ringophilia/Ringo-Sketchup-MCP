@@ -1,0 +1,36 @@
+{
+  "name": "@ringo/sketchup-mcp",
+  "version": "1.0.0",
+  "license": "MIT",
+  "private": true,
+  "description": "Local SketchUp MCP bridge for ChatGPT, Codex and other MCP agents on Windows and macOS",
+  "repository": {"type": "git", "url": "https://github.com/Ringophilia/Ringo-Sketchup-MCP.git"},
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/mcp-server.js",
+    "dev": "tsx src/mcp-server.ts",
+    "test": "node --test --import tsx test/**/*.test.ts",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "check": "npm run build && npm test",
+    "check:ruby": "node scripts/check-ruby.mjs",
+    "install:extension": "node scripts/install.mjs",
+    "package:rbz": "node scripts/package.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "config:agents": "node scripts/agent-config.mjs",
+    "test:live": "node scripts/live-test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "fflate": "^0.8.3",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

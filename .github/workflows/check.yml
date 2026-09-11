@@ -1,0 +1,40 @@
+name: Compatibility
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        node: [22, 24]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+      - run: npm ci
+      - run: npm run check
+      - run: npm run check:ruby
+      - run: npm run package:rbz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rbz-${{ matrix.os }}-${{ matrix.node }}
+          path: release/
+  ruby-syntax:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ruby: ['2.7', '3.2', '3.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+      - run: ruby -c extension/ringo_sketchup_mcp/operations.rb
+      - run: ruby -c extension/ringo_sketchup_mcp/server.rb
