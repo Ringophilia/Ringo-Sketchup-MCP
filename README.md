@@ -65,6 +65,7 @@ npm run setup -- --profile apple --name "Apple project" --port 9876
 npm run setup -- --profile pear --name "Pear project" --port 9877
 npm run config:agents -- --profile apple
 npm run config:agents -- --profile pear
+npm run test:two-instance
 ```
 
 每个 profile 的配置片段会放在 `.agent-config/<profile>/`。将两个目录中的服务合并到 Agent 客户端后，服务名分别是 `sketchup-apple` 和 `sketchup-pear`。在两个 SketchUp 窗口中打开 **Extensions → Ringo SketchUp MCP → Select Profile**，给当前进程选择对应 profile；状态菜单会显示 profile 名称、端口和进程 ID。

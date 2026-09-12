@@ -390,7 +390,7 @@ module RingoSketchupMCP
   def set_material(params)
     name=params.fetch('name'); mat=model.materials[name] || model.materials.add(name)
     if params['color']
-      color=vector(params['color']); raise ArgumentError,'RGB must be between 0 and 255' unless color.all? { |v| (0..255).include?(v) }
+      color=vector(params['color']).map(&:round); raise ArgumentError,'RGB must be between 0 and 255' unless color.all? { |v| (0..255).include?(v) }
       mat.color=Sketchup::Color.new(*color)
     end
     if params['alpha']

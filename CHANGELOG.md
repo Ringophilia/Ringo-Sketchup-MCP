@@ -6,6 +6,7 @@
 - Add profile selection in the SketchUp extension menu; port conflicts now produce a recoverable status message instead of a raw startup dialog.
 - Add `instance` metadata to bridge and model status so an LLM can confirm the target SketchUp process before editing.
 - Add profile-aware setup, diagnostics, agent configuration generation, and duplicate-port validation.
+- Add a two-instance acceptance demo and fix integer RGB conversion for SketchUp materials.
 
 ## 1.2.0
 

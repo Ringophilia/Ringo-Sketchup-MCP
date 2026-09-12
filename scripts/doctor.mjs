@@ -10,11 +10,12 @@ export async function diagnose({offline=false,directory=root,profile,configPath=
   const add=(code,status,message,fix)=>checks.push({code,status,message,...(fix?{fix}: {})});
   const pkg=await readJson(join(directory,'package.json'));
   let ready=true;
+  let configured;
   try {await access(join(directory,'dist/mcp-server.js'));add('build','ok','Node 服务已构建 / Server is built');}
   catch {ready=false;add('build','error','缺少构建输出 / Build missing','npm run build');}
   try {
-    const config=await readJson(configPath);
-    validateConfig({...config,token:process.env.SKETCHUP_TOKEN ?? config.token,port:Number(process.env.SKETCHUP_PORT ?? config.port)});
+    const config=await readJson(configPath); configured={...config,token:process.env.SKETCHUP_TOKEN ?? config.token,port:Number(process.env.SKETCHUP_PORT ?? config.port)};
+    validateConfig(configured);
     add('config','ok','本地配置有效 / Local configuration is valid');
   } catch(error) {ready=false;add('config','error',error.code==='ENOENT'?'未安装配置 / Config missing':error.message,'npm run setup');}
   try { const registry=await readJson(profilesRegistryPath()); const entries=Array.isArray(registry.profiles)?registry.profiles:[]; const conflicts=entries.filter(item=>entries.some(other=>other!==item&&other.port===item.port)); if(conflicts.length) add('profiles','error','Profile 之间存在重复端口 / Profile port conflict','给每个 profile 分配不同 --port'); else add('profiles','ok',`${entries.length} 个 profile 已注册 / profiles registered`); } catch(error) { if(error.code!=='ENOENT') add('profiles','error',error.message); }
@@ -32,7 +33,7 @@ export async function diagnose({offline=false,directory=root,profile,configPath=
     let client;
     try {
       const {SketchupClient}=await import(pathToFileURL(join(directory,'dist/sketchup-client.js')).href);
-      client=new SketchupClient({timeoutMs:5000,connectTimeoutMs:2000});
+      client=new SketchupClient({host:configured.host,port:configured.port,token:configured.token,timeoutMs:5000,connectTimeoutMs:2000});
       bridge=await client.call('bridge.status');
       if(bridge.version!==pkg.version) add('bridge','error',`运行中的扩展版本 ${bridge.version}，项目版本 ${pkg.version} / Version mismatch`,'npm run setup，然后关闭并重新启动 SketchUp');
       else add('bridge','ok',`SketchUp ${bridge.sketchup_version} / Ruby ${bridge.ruby_version} 已连接`);

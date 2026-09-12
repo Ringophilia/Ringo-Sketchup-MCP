@@ -106,4 +106,8 @@ npm run setup -- --profile pear --name "Pear" --port 9877
 
 > 先调用 sketchup-apple 的 bridge_status，确认 profile_id=apple 和模型路径；只在这个服务中创建苹果。完成后调用 sketchup-pear 的 bridge_status，确认 profile_id=pear；只在这个服务中创建梨子。
 
-每次修改前，LLM 都应该确认服务名、profile、模型标题和模型路径。两个服务的实体 ID、快照和会话不能互换。
+每次修改前，LLM 都应该确认服务名、profile、模型标题和模型路径。两个服务的实体 ID、快照和会话不能互换。仓库中的 `npm run test:two-instance` 会分别在 apple/pear profile 里创建和保存示例模型，用于验证隔离。
+
+## 双实例验收脚本
+
+在已准备好 `apple` 和 `pear` profile、并已打开两个 SketchUp 模型时运行 `npm run test:two-instance`。脚本会清空两个测试模型，分别创建苹果和梨子，导出 `artifacts/apple-multi-instance.png`、`artifacts/pear-multi-instance.png`，并保存两个 SKP。
