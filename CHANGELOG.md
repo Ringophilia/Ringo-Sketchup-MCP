@@ -1,5 +1,10 @@
 # Changes
 
+## 1.3.1
+
+- Restore the previously verified transitive dependency lock for reproducible Linux/macOS `npm ci`.
+- Add npm registry retry settings to the compatibility workflow.
+
 ## 1.3.0
 
 - Add isolated SketchUp profiles with separate ports, tokens, config files, registry entries, and generated MCP service names.

@@ -18,7 +18,7 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-      - run: npm ci
+      - run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
       - run: npm run check
       - run: npm run check:ruby
       - run: npm run test:ruby

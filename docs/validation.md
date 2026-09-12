@@ -1,6 +1,6 @@
 # 验证记录
 
-## 1.3.0 · 2026-09-12
+## 1.3.1 · 2026-09-12
 
 - 双实例 acceptance：apple/9876 与 pear/9877 两个 SketchUp 进程均连接成功，profile、instance_id、model_id 各自独立；分别创建并保存了 apple-multi-instance.skp 和 pear-multi-instance.skp，两个 PNG 预览已生成。
 - 修复真实 SketchUp 材质 RGB 必须使用整数的问题。

@@ -2,7 +2,7 @@
 
 让支持 MCP 的 AI 在桌面 SketchUp 中查询、建模、编辑和查看结果。Node.js 提供标准 stdio MCP，Ruby 扩展在 SketchUp UI 线程操作模型。
 
-当前版本 **1.3.0**。Windows SketchUp 26.2.243 已完成实机回归。macOS 有安装路径、CI 和同一份 Ruby 实现，**尚未完成 macOS SketchUp 实机验收**。仅支持桌面 SketchUp，网页和 iPad 版不适用。
+当前版本 **1.3.1**。Windows SketchUp 26.2.243 已完成实机回归。macOS 有安装路径、CI 和同一份 Ruby 实现，**尚未完成 macOS SketchUp 实机验收**。仅支持桌面 SketchUp，网页和 iPad 版不适用。
 
 ## 快速开始
 
