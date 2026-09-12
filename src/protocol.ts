@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-export const VERSION = '1.1.0';
+export const VERSION = '1.2.0';
 export const PROTOCOL = 3;
 export const MAX_FRAME = 4 * 1024 * 1024;
 export type RpcId = string | number;

@@ -8,13 +8,19 @@ import {resolve} from 'node:path';
 test('MCP structured results, RPC errors and invalid inputs are unambiguous',async t=>{
   const seen:any[]=[];
   const b=await fakeBridge((r,s)=>{
-    if(hello(r,s))return;seen.push(r);
+    if(hello(r,s))return;
+    if(r.method==='model.get_info'){respond(s,r,{success:true,data:{model_id:'model-1',active_path:[]},warnings:[]});return;}
+    seen.push(r);
     if(r.method==='entity.delete')s.write(JSON.stringify({jsonrpc:'2.0',id:r.id,error:{code:-32008,message:'stale entity'}})+'\n');
     else respond(s,r,{success:true,data:r.params,warnings:[],operation_id:r.id});
   });
   const c=new Client({name:'test',version:'1'},{capabilities:{}});
   t.after(async()=>{await c.close();await b.close()});
   await c.connect(new StdioClientTransport({command:process.execPath,args:['dist/mcp-server.js'],env:{...process.env,SKETCHUP_PORT:String(b.port),SKETCHUP_TOKEN:TOKEN}}));
+  const unbound=await c.callTool({name:'entity_create_box',arguments:{size:[1,2,3]}});
+  assert.equal((unbound.structuredContent as any).error.code,-32007);
+  assert.equal(seen.length,0);
+  await c.callTool({name:'model_get_info',arguments:{}});
   const result=await c.callTool({name:'entity_create_cylinder',arguments:{radius_mm:20,height_mm:50}});
   assert.equal(result.isError,undefined);assert.equal((result.structuredContent as any).data.radius_mm,20);
   const bad=await c.callTool({name:'entity_delete',arguments:{entity_id:123}});
@@ -29,6 +35,18 @@ test('MCP structured results, RPC errors and invalid inputs are unambiguous',asy
   assert.equal(seen[2].method,'batch.run');
   assert.equal(seen[2].params.commands[0].method,'entity.create_box');
   assert.equal(seen[2].params.commands[0].params.model_id,'model-1');
+  assert.deepEqual(seen[0].params.active_path,[]);
+  assert.equal(seen[0].params.model_id,'model-1');
+  for(const arguments_ of [
+    {model_id:'model-1',commands:[{method:'entity.delete',params:{entity_id:1,model_id:'other'}}]},
+    {commands:[{method:'model_save',params:{path:'test.skp'}}]},
+    {commands:[{method:'entity_transform',params:{entity_id:1,axis:[0,0,1]}}]},
+    {commands:[{method:'entity_create_box',params:{size:[1,2,3],misspelled:true}}]}
+  ]) {
+    const result=await c.callTool({name:'batch_run',arguments:arguments_});
+    assert.equal(result.isError,true);
+  }
+  assert.equal(seen.length,3);
   const imagePath=resolve('artifacts','mcp-image-test.png');
   await mkdir(resolve('artifacts'),{recursive:true});
   await writeFile(imagePath,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64'));

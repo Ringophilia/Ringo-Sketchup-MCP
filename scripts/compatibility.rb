@@ -1,6 +1,6 @@
 # Runs in the host's Ruby, using isolated fake SketchUp API surfaces.
 # No real SketchUp objects are modified.
-folder = File.dirname(RingoSketchupMCP.method(:dispatch).source_location.first)
+folder = File.expand_path('../extension/ringo_sketchup_mcp', __dir__)
 reports=[]
 [false,true].each do |modern|
   namespace=Module.new
@@ -17,8 +17,10 @@ reports=[]
   fake_sketchup.define_singleton_method(:active_model) { fake_model }
   fake_sketchup.define_singleton_method(:redo) { nil } if modern
   namespace.const_set(:Sketchup,fake_sketchup)
-  namespace.module_eval(File.read(File.join(folder,'config.rb')), 'isolated-config.rb')
-  namespace.module_eval(File.read(File.join(folder,'operations.rb')), 'isolated-operations.rb')
+  %w[config references view operations].each do |name|
+    path=File.join(folder,name+'.rb')
+    namespace.module_eval(File.read(path).gsub(/^require_relative.*$/, ''),path)
+  end
   bridge=namespace.const_get(:RingoSketchupMCP)
   bridge.define_singleton_method(:config) { {'ruby_enabled'=>false} }
   caps=bridge.capabilities

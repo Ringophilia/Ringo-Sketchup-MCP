@@ -1,6 +1,6 @@
 {
   "name": "@ringo/sketchup-mcp",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "license": "MIT",
   "private": true,
   "description": "Local SketchUp MCP bridge for ChatGPT, Codex and other MCP agents on Windows and macOS",
@@ -17,11 +17,15 @@
     "lint": "tsc -p tsconfig.json --noEmit",
     "check": "npm run build && npm test",
     "check:ruby": "node scripts/check-ruby.mjs",
+    "test:ruby": "node scripts/test-ruby.mjs",
     "install:extension": "node scripts/install.mjs",
+    "setup": "node scripts/setup.mjs",
     "package:rbz": "node scripts/package.mjs",
     "doctor": "node scripts/doctor.mjs",
     "config:agents": "node scripts/agent-config.mjs",
-    "test:live": "node scripts/live-test.mjs"
+    "test:live": "node scripts/live-test.mjs",
+    "test:references": "node scripts/live-references.mjs",
+    "test:performance": "node scripts/live-performance.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.0",

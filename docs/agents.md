@@ -4,7 +4,7 @@ Ringo SketchUp MCP 提供标准 MCP stdio 服务。Agent 启动本机 Node 进�
 
 ## 1. 安装并生成本机配置
 
-先按 README 安装扩展、构建 Node 服务并重启 SketchUp，然后在项目目录执行：
+先运行 npm run setup 安装扩展、构建 Node 服务并重启 SketchUp，然后在项目目录执行：
 
 ```sh
 npm run config:agents
@@ -71,7 +71,7 @@ TCP `127.0.0.1:9876` 是项目内部桥接协议，**不是 HTTP MCP endpoint**�
 
 可以直接把这段话交给 Agent：
 
-> 使用 sketchup MCP：先调用 bridge_status 和 model_get_info，确认当前模型及能力；用 entity_list / entity_inspect 获取实体 ID 和实例路径。默认单位为毫米。修改前确认目标，引用实体时携带 model_id。创建嵌套几何时用 parent.path，后续始终携带返回的完整 path。共享组件需要独立编辑时先 make_unique 再重新查询。使用 batch_run 合并关联修改，批量参数错误会在发送前被拦截。大型模型注意 entity_list / model_stats 的 total_exact 和扫描上限。完成后调用 view_export 检查图片；小于 4 MiB 的图片会直接作为 MCP image 返回。超时后检查最近操作状态，不要自动重放修改。只有 ruby capability 开启时才使用 sketchup_run_ruby。
+> 使用 sketchup MCP：先调用 bridge_status 和 model_get_info，确认当前模型及能力；用 entity_list / entity_inspect 获取实体 ID 和实例路径。默认单位为毫米。修改前确认目标，引用实体时携带 model_id。创建嵌套几何时用 parent.path，后续始终携带返回的完整 path。共享组件需要独立编辑时先 make_unique 再重新查询。使用 batch_run 合并关联修改，批量参数错误会在发送前被拦截。大型模型注意 entity_list / model_stats 的 total_exact 和扫描上限。完成后调用 view_capture 直接查看图片；需要保存时使用 view_export。超时后检查最近操作状态，不要自动重放修改。只有 ruby capability 开启时才使用 sketchup_run_ruby。
 
 常见问题：
 

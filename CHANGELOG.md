@@ -1,5 +1,15 @@
 # Changes
 
+## 1.2.0
+
+- Resolve references through parent definitions with consistent local/world transforms; reject ambiguous writes before mutation and enforce locked ancestors.
+- Bind edits to the last inspected model and edit context, including queued operations and batches.
+- Stop ordinary queries after one page; bound traversal time and report incomplete results explicitly.
+- Add path-free view_capture with MCP PNG output and frame nested entities in world coordinates.
+- Add one-command setup, complete extension backup and rollback, bilingual diagnostics, and an expanded usage guide.
+- Add Ruby behavioral tests and real SketchUp nested/shared/edit-context and 5000-instance performance regressions to the validation workflow.
+- Isolate cancellation per connection and retain request IDs in disconnect errors.
+
 ## 1.1.0
 
 - Make nested entity paths and world transforms consistent for list, inspect, create, duplicate and group results.

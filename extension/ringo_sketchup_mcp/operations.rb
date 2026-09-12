@@ -1,8 +1,10 @@
+require_relative 'references'
+require_relative 'view'
 module RingoSketchupMCP
   MUTATIONS = %w[scene.clear entity.create_box entity.create_cylinder entity.create_mesh entity.extrude entity.transform entity.delete entity.set_material entity.update entity.duplicate entity.group entity.make_unique tags.set materials.set scene.set]
   module_function
   def model; Sketchup.active_model || raise(BridgeError.new('Open a SketchUp model first', -32007)); end
-  def model_id; @models ||= {}; @models[model.object_id] ||= SecureRandom.uuid; end
+  def model_id; @models ||= {}; @models[model] ||= SecureRandom.uuid; end
   def number(value)
     raise ArgumentError, 'Expected a finite number' unless value.is_a?(Numeric) && value.to_f.finite?
     value.to_f
@@ -23,64 +25,6 @@ module RingoSketchupMCP
     end
     raise BridgeError.new('Entity reference is stale', -32008) unless e && e.valid?
     e
-  end
-  def resolve_ref(params)
-    if params['model_id'] && params['model_id'] != model_id
-      raise BridgeError.new('Entity belongs to another model/session', -32007)
-    end
-    if params['path']
-      collection = model.entities; e = nil
-      params['path'].each_with_index do |id,i|
-        e = collection.find { |item| pid(item) == Integer(id) }
-        raise BridgeError.new('Instance path is stale', -32008) unless e
-        collection = children(e) if i < params['path'].length-1
-        raise BridgeError.new('Path enters a non-container', -32008) unless collection
-      end
-      raise ArgumentError, 'Empty path' unless e
-      raise BridgeError.new('Entity ID does not match instance path', -32008) if params['entity_id'] && pid(e) != Integer(params['entity_id'])
-      e
-    else
-      find_entity(params.fetch('entity_id'))
-    end
-  end
-  def locate_entity(target)
-    root = model.entities.find { |entity| entity == target }
-    return {entity: root, path: [pid(root)], transform: Geom::Transformation.new, parent_transform: Geom::Transformation.new} if root
-    found = nil; occurrences = 0
-    walk do |e, path, transform|
-      if e == target
-        occurrences += 1
-        found ||= {entity: e, path: path, transform: transform, parent_transform: transform}
-        :stop if occurrences >= 2
-      end
-    end
-    if found && occurrences > 1
-      raise BridgeError.new('Entity ID is shared by multiple instance paths; provide path', -32008)
-    end
-    found
-  end
-  def locate_path(path)
-    raise ArgumentError, 'Path must contain 1-32 entity IDs' unless path.is_a?(Array) && (1..32).include?(path.length)
-    collection = model.entities; transform = Geom::Transformation.new; parent_transform = transform; entity = nil
-    path.each_with_index do |id, index|
-      entity = collection.find { |item| pid(item) == Integer(id) }
-      raise BridgeError.new('Instance path is stale', -32008) unless entity && entity.valid?
-      parent_transform = transform
-      if entity.respond_to?(:transformation)
-        transform = transform * entity.transformation
-      end
-      if index < path.length - 1
-        collection = children(entity)
-        raise BridgeError.new('Path enters a non-container', -32008) unless collection
-      end
-    end
-    {entity: entity, path: path.map { |id| Integer(id) }, transform: transform, parent_transform: parent_transform}
-  end
-  def active_context
-    path = (model.active_path || []).map { |e| pid(e) }
-    return {path: [], transform: Geom::Transformation.new} if path.empty?
-    location = locate_path(path)
-    {path: path, transform: location[:transform]}
   end
   def bounds_data(bounds, unit='mm')
     f=factor(unit)
@@ -107,14 +51,22 @@ module RingoSketchupMCP
       reference_lifetime: e.respond_to?(:persistent_id) ? 'model_persistent_with_session_guard' : 'current_session_only'
     }
   end
-  def walk(collection=model.entities, path=[], transform=Geom::Transformation.new, depth=0, max_depth=16, &block)
+  def walk(collection=model.entities, path=[], transform=Geom::Transformation.new, depth=0, max_depth=31, budget=nil, &block)
+    budget ||= {visited:0, deadline:Process.clock_gettime(Process::CLOCK_MONOTONIC)+0.5}
     collection.each do |e|
+      budget[:visited] += 1
+      if budget[:visited] % 128 == 0 && Process.clock_gettime(Process::CLOCK_MONOTONIC) > budget[:deadline]
+        return :budget
+      end
       p = path + [pid(e)]
       result = yield e,p,transform
       return :stopped if result == :stop
       nested=children(e)
       if nested && depth < max_depth
-        return :stopped if walk(nested,p,transform*e.transformation,depth+1,max_depth,&block) == :stopped
+        result = walk(nested,p,transform*e.transformation,depth+1,max_depth,budget,&block)
+        return result if result
+      elsif nested && nested.length > 0
+        budget[:depth_limited] = true
       end
     end
     nil
@@ -124,19 +76,16 @@ module RingoSketchupMCP
     depth = [[depth,0].max,32].min
     limit = [[Integer(params.fetch('limit',100)),1].max,1000].min
     offset = [Integer(params.fetch('offset',0)),0].max
-    rows=[]; total=0; scanned=0; truncated=false; unit=params.fetch('unit','mm')
-    scan_limit = [[Integer(params.fetch('scan_limit',100000)), [limit + offset, 1000].max].max, 1000000].min
-    if params['path']
-      located = locate_path(params['path']); raise BridgeError.new('Entity ID does not match path', -32008) if params['entity_id'] && Integer(params['entity_id']) != pid(located[:entity]); root = children(located[:entity]); base_path = located[:path]; base_transform = located[:transform]
-    elsif params['entity_id']
-      parent = resolve_ref(params); located = locate_entity(parent)
-      raise BridgeError.new('Entity reference is not present in the active model', -32008) unless located
-      root = children(parent); base_path = located[:path]; base_transform = located[:transform]
+    rows=[]; total=0; scanned=0; truncated=false; more=false; unit=params.fetch('unit','mm')
+    scan_limit = [[Integer(params.fetch('scan_limit',100000)),1000].max,1000000].min
+    if params['path'] || params['entity_id']
+      located = locate_ref(params)
+      root = children(located[:entity]); base_path = located[:path]; base_transform = located[:transform]
     else
       root = model.entities; base_path = []; base_transform = Geom::Transformation.new
     end
     raise ArgumentError, 'Entity has no children' unless root
-    walk(root,base_path,base_transform,0,depth) do |e,path,trans|
+    outcome=walk(root,base_path,base_transform,0,depth) do |e,path,trans|
       if scanned >= scan_limit
         truncated=true
         :stop
@@ -147,23 +96,17 @@ module RingoSketchupMCP
         next if params['tag'] && e.layer.name != params['tag']
         rows << summary(e,path,trans,unit) if total >= offset && rows.length < limit
         total+=1
+        if !params['include_total'] && total > offset+limit
+          more=true
+          :stop
+        end
       end
     end
-    {entities: rows, total: total, total_exact: !truncated, scanned: scanned, scan_limit: scan_limit, next_offset: truncated ? nil : (offset+rows.length < total ? offset+rows.length : nil), model_id: model_id}
-  end
-  def inspect_entity(params)
-    target=resolve_ref(params); found=nil; wanted=params['path']&.map { |id| Integer(id) }
-    if wanted
-      located = locate_path(wanted)
-      raise BridgeError.new('Entity ID does not match instance path', -32008) if params['entity_id'] && located[:entity] != target
-      parent_transform = located[:parent_transform]
-      found = summary(located[:entity], located[:path], parent_transform, params.fetch('unit','mm'))
-    else
-      located = locate_entity(target)
-      raise BridgeError.new('Entity reference is not present in the active model', -32008) unless located
-      found = summary(target, located[:path], located[:transform], params.fetch('unit','mm'))
+    truncated ||= outcome == :budget
+    if truncated
+      @warnings << 'Query reached its work budget. Scope entity_list to a parent path, reduce max_depth, or use more specific queries.'
     end
-    {entity: found}
+    {entities: rows, total: total, total_exact: !truncated && !more, scanned: scanned, scan_limit: scan_limit, truncated: truncated, next_offset: offset+rows.length < total ? offset+rows.length : nil, model_id: model_id}
   end
   def transaction(name)
     model.start_operation(name, true)
@@ -191,11 +134,14 @@ module RingoSketchupMCP
   end
   def dispatch(method, params, nested=false)
     @warnings=[] unless nested
-    if params['model_id'] && params['model_id'] != model_id
-      raise BridgeError.new('Active model/session changed', -32007)
-    end
+    check_model(params)
     if !nested && MUTATIONS.include?(method)
-      return transaction(method) { dispatch(method,params,true) }
+      begin
+        @editing = true
+        return transaction(method) { dispatch(method,params,true) }
+      ensure
+        @editing = false
+      end
     end
     case method
     when 'model.get_info'
@@ -205,7 +151,8 @@ module RingoSketchupMCP
        active_path: (model.active_path || []).map { |e| pid(e) }, capabilities: capabilities}
     when 'model.stats'
       counts=Hash.new(0); solids=0; scanned=0; max_entities=[[Integer(params.fetch('max_entities',100000)),1000].max,1000000].min; truncated=false
-      walk do |e,_,_|
+      budget={visited:0, deadline:Process.clock_gettime(Process::CLOCK_MONOTONIC)+0.5}
+      outcome=walk(model.entities,[],Geom::Transformation.new,0,31,budget) do |e,_,_|
         if scanned >= max_entities
           truncated=true
           :stop
@@ -213,6 +160,7 @@ module RingoSketchupMCP
           scanned+=1; counts[e.typename]+=1; solids+=1 if e.respond_to?(:manifold?) && e.manifold?
         end
       end
+      truncated ||= outcome == :budget || budget[:depth_limited]
       {model_id: model_id, counts: counts, solid_instances: solids, scanned: scanned, max_entities: max_entities, total_exact: !truncated, definitions:model.definitions.length, materials:model.materials.length,tags:model.layers.length,scenes:model.pages.length}
     when 'entity.list'; list_entities(params)
     when 'entity.inspect'; inspect_entity(params)
@@ -225,6 +173,7 @@ module RingoSketchupMCP
       }}
     when 'selection.set'
       list=Array(params.fetch('entity_ids')).map { |id| find_entity(id) }
+      raise ArgumentError,'Selection must be in the current edit context' unless list.all? { |e| model.active_entities.include?(e) }
       model.selection.clear; model.selection.add(list) unless list.empty?
       {count: model.selection.length}
     when 'scene.clear'
@@ -278,10 +227,10 @@ module RingoSketchupMCP
     when 'entity.duplicate'
       e=resolve_ref(params)
       raise ArgumentError,'Only group/component duplication supported' unless children(e)
-      copy=e.is_a?(Sketchup::Group) ? e.copy : e.parent.add_instance(e.definition,e.transformation)
+      source = locate_ref(params)
+      copy=e.is_a?(Sketchup::Group) ? e.copy : e.parent.entities.add_instance(e.definition,e.transformation)
       copy.name=params['name'] if params['name']
       copy.transform!(Geom::Transformation.translation(point(params.fetch('translation',[0,0,0]),params['unit'])))
-      source = params['path'] ? locate_path(params['path']) : locate_entity(e)
       source_parent_path = source[:path][0...-1]
       {entity: summary(copy, source_parent_path + [pid(copy)], source[:parent_transform], params.fetch('unit','mm'))}
     when 'entity.make_unique'
@@ -322,14 +271,21 @@ module RingoSketchupMCP
       end
       {name:page.name}
     when 'camera.get'; camera_data
+    when 'view.capture'; capture_view(params)
     when 'camera.set'
       view=model.active_view
       if params['eye']
         view.camera=Sketchup::Camera.new(point(params['eye'],params['unit']),point(params.fetch('target'),params['unit']),vector(params.fetch('up',[0,0,1])))
       end
       view.camera.perspective=params['perspective'] unless params['perspective'].nil?
-      view.camera.fov=number(params['fov']) if params['fov']
-      view.zoom(resolve_ref(params)) if params['entity_id'] || params['path']
+      view.camera.fov=number(params['fov']) if params['fov'] && view.camera.perspective?
+      view.camera.height=number(params['height'])*factor(params['unit']) if params['height'] && !view.camera.perspective?
+      if params['entity_id'] || params['path']
+        location=locate_ref(params)
+        box=Geom::BoundingBox.new
+        8.times { |i| box.add(location[:entity].bounds.corner(i).transform(location[:parent_transform])) } if location[:entity].bounds.valid?
+        frame_bounds(view,box) if box.valid?
+      end
       view.zoom_extents if params['zoom_extents']
       view.invalidate
       camera_data
@@ -354,7 +310,12 @@ module RingoSketchupMCP
     when 'batch.run'
       commands=params.fetch('commands'); raise ArgumentError,'Batch accepts 1–100 commands' unless commands.is_a?(Array) && (1..100).include?(commands.length)
       raise ArgumentError,'Batch only supports typed model mutations' unless commands.all? { |c| MUTATIONS.include?(c['method']) }
-      transaction(params.fetch('operation_name','MCP batch')) { commands.map { |c| dispatch(c['method'],c.fetch('params',{}),true) } }
+      begin
+        @editing = true
+        transaction(params.fetch('operation_name','MCP batch')) { commands.map { |c| dispatch(c['method'],c.fetch('params',{}),true) } }
+      ensure
+        @editing = false
+      end
     when 'ruby.eval'
       raise BridgeError.new('Ruby execution disabled; enable ruby_enabled in the bridge config',-32001) unless config['ruby_enabled']
       code=params.fetch('code'); raise ArgumentError,'Ruby code exceeds 200 KB' unless code.is_a?(String) && code.bytesize <= 200000
@@ -374,19 +335,12 @@ module RingoSketchupMCP
     unit=params.fetch('unit','mm'); origin=point(params.fetch('origin',[0,0,0]),unit)
     parent_params = params['parent'] || (params['parent_id'] ? {'entity_id'=>params['parent_id']} : nil)
     if parent_params
-      raise BridgeError.new('Parent belongs to another model/session', -32007) if parent_params['model_id'] && parent_params['model_id'] != model_id
-      parent_location = parent_params['path'] ? locate_path(parent_params['path']) : locate_entity(resolve_ref(parent_params))
-      raise BridgeError.new('Parent entity is not present in the active model', -32008) unless parent_location
-      if parent_params['path'] && parent_params['entity_id'] && pid(parent_location[:entity]) != Integer(parent_params['entity_id'])
-        raise BridgeError.new('Parent entity ID does not match path', -32008)
-      end
+      parent_location = locate_ref(parent_params)
+      assert_editable(parent_location, {}, include_leaf: true)
       parent_entity = parent_location[:entity]
       container = children(parent_entity)
       parent_path = parent_location[:path]
       parent_transform = parent_location[:transform]
-      if parent_entity.is_a?(Sketchup::ComponentInstance) && parent_entity.definition.respond_to?(:instances) && parent_entity.definition.instances.length > 1
-        @warnings << 'Parent is a shared component; created geometry affects all instances. Call entity_make_unique first for an independent edit.'
-      end
     else
       container=model.active_entities
       context=active_context; parent_path=context[:path]; parent_transform=context[:transform]
@@ -424,11 +378,13 @@ module RingoSketchupMCP
   end
   def snapshot_entities
     rows=[]
-    walk do |e,path,trans|
+    budget={visited:0, deadline:Process.clock_gettime(Process::CLOCK_MONOTONIC)+0.5}
+    outcome=walk(model.entities,[],Geom::Transformation.new,0,31,budget) do |e,path,trans|
       next unless children(e) || path.length==1
       rows << summary(e,path,trans)
       raise ArgumentError,'Snapshot exceeds 10000 containers' if rows.length>10000
     end
+    raise BridgeError.new('Snapshot exceeded traversal budget; use scoped entity_list for this model',-32005) if outcome == :budget || budget[:depth_limited]
     rows
   end
   def set_material(params)
@@ -451,7 +407,7 @@ module RingoSketchupMCP
   end
   def camera_data
     c=model.active_view.camera
-    {eye:c.eye.to_a.map { |v| v*25.4 },target:c.target.to_a.map { |v| v*25.4 },up:c.up.to_a,perspective:c.perspective?,fov:c.fov,unit:'mm'}
+    {eye:c.eye.to_a.map { |v| v*25.4 },target:c.target.to_a.map { |v| v*25.4 },up:c.up.to_a,perspective:c.perspective?,fov:c.perspective? ? c.fov : nil,height:c.perspective? ? nil : c.height*25.4,unit:'mm'}
   end
   def output(params,method)
     path=params.fetch('path')

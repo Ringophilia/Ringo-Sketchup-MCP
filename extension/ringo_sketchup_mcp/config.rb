@@ -5,7 +5,7 @@ require 'fileutils'
 require 'time'
 require 'stringio'
 module RingoSketchupMCP
-  VERSION = '1.1.0'
+  VERSION = '1.2.0'
   PROTOCOL = 3
   MAX_FRAME = 4 * 1024 * 1024
   module_function
@@ -52,7 +52,7 @@ module RingoSketchupMCP
       redo: Sketchup.respond_to?(:redo),
       pbr: Sketchup::Material.method_defined?(:roughness_factor=),
       camera: defined?(Sketchup::Camera) ? true : false,
-      snapshots: true, batch: true, mesh: true,
+      snapshots: true, batch: true, mesh: true, view_capture: true, guarded_context: true,
       cancel: 'queued_only', progress: 'queue_and_completion',
       foreground_detection: false
     }

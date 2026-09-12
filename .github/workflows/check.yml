@@ -21,6 +21,7 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run check:ruby
+      - run: npm run test:ruby
       - run: npm run package:rbz
       - uses: actions/upload-artifact@v4
         with:
@@ -38,3 +39,4 @@ jobs:
           ruby-version: ${{ matrix.ruby }}
       - run: ruby -c extension/ringo_sketchup_mcp/operations.rb
       - run: ruby -c extension/ringo_sketchup_mcp/server.rb
+      - run: ruby test/ruby/contracts_test.rb

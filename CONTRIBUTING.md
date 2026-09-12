@@ -15,6 +15,7 @@ private reporting link in [SECURITY.md](SECURITY.md).
 npm ci
 npm run check
 npm run check:ruby
+npm run test:ruby
 npm run package:rbz
 ```
 

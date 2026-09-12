@@ -50,6 +50,7 @@ export class SketchupClient {
         });
       });
       const hello = await this.send('bridge.hello', {protocol: PROTOCOL}) as {protocol: number; supported_protocols?: number[]; capabilities: Record<string,unknown>};
+      if (!hello || typeof hello!=='object' || !Number.isInteger(hello.protocol) || !hello.capabilities || typeof hello.capabilities!=='object' || Array.isArray(hello.capabilities)) throw new RpcError('Invalid bridge handshake',-32600);
       if (hello.protocol !== PROTOCOL && !hello.supported_protocols?.includes(PROTOCOL)) throw new RpcError('Incompatible protocol major; update either side. Minor versions are negotiated by capability.', -32004);
       this.capabilities = hello.capabilities;
     })().catch((e) => { this.socket?.destroy(); throw e; }).finally(() => { this.connecting = undefined; });
@@ -72,6 +73,6 @@ export class SketchupClient {
     });
   }
   private finish(id: string): void { const p = this.pending.get(id); if (p) { clearTimeout(p.timer); p.detach(); this.pending.delete(id); } }
-  private failAll(error: Error): void { for (const [id,p] of this.pending) { this.finish(id); p.reject(error); } }
+  private failAll(error: Error): void { for (const [id,p] of this.pending) { this.finish(id); p.reject(error instanceof RpcError ? new RpcError(error.message,error.code,{request_id:id,outcome:'unknown'}) : error); } }
   async close(): Promise<void> { this.failAll(new RpcError('Client closed', -32002)); const socket = this.socket; this.socket = undefined; socket?.destroy(); }
 }

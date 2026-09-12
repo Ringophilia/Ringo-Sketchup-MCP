@@ -63,13 +63,18 @@ module RingoSketchupMCP
       when 'bridge.status'
         reply(socket, request['id'], status)
       when 'bridge.cancel'
-        target = params['request_id']; removed = @jobs.select { |job| job[:request]['id'] == target }
-        removed.each { |job| @jobs.delete(job); reply(job[:socket], target, nil, BridgeError.new('Cancelled before execution', -32003)) }
+        target = params['request_id']; removed = @jobs.select { |job| job[:socket] == socket && job[:request]['id'] == target }
+        removed.each do |job|
+          @jobs.delete(job)
+          reply(job[:socket], target, nil, BridgeError.new('Cancelled before execution', -32003))
+          @history << {id:target,method:job[:request]['method'],state:'cancelled'}
+          @history.shift while @history.length>100
+        end
         reply(socket, request['id'], {cancelled: !removed.empty?, running: @current && @current[:id] == target})
       else
         raise BridgeError.new('Queue full; retry after checking status', -32006) if @jobs.length >= 128
         raise BridgeError.new('Duplicate pending request ID', -32600) if @jobs.any? { |j| j[:socket] == socket && j[:request]['id'] == request['id'] }
-        @jobs << {socket: socket, request: request, queued_at: Process.clock_gettime(Process::CLOCK_MONOTONIC), model: Sketchup.active_model}
+        @jobs << {socket: socket, request: request, queued_at: Process.clock_gettime(Process::CLOCK_MONOTONIC), model: Sketchup.active_model, active_path:(Sketchup.active_model.active_path || []).map { |e| pid(e) }}
       end
     end
   rescue JSON::ParserError
@@ -129,14 +134,20 @@ module RingoSketchupMCP
     begin
       raise BridgeError.new('Request expired before execution', -32003) if req['deadline_ms'] && Time.now.to_f * 1000 > Float(req['deadline_ms'])
       raise BridgeError.new('Active model changed while request was queued', -32007) unless job[:model] == Sketchup.active_model
+      if job[:active_path] != (Sketchup.active_model.active_path || []).map { |e| pid(e) }
+        raise BridgeError.new('Edit context changed while request was queued', -32007)
+      end
       data = dispatch(req['method'], req['params'] || {})
       elapsed = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round
       reply(job[:socket], req['id'], {success: true, data: data, warnings: @warnings || [], operation_id: req['id'], elapsed_ms: elapsed, queue_ms: ((started-job[:queued_at])*1000).round})
       @current[:state] = 'completed'
     rescue StandardError, SyntaxError => error
+      error=BridgeError.new(error.message,-32602) if error.is_a?(ArgumentError) || error.is_a?(KeyError)
       reply(job[:socket], req['id'], nil, error)
       @current[:state] = 'failed'
+      @current[:error_code] = error.code if error.respond_to?(:code)
     ensure
+      @current[:elapsed_ms] = ((Process.clock_gettime(Process::CLOCK_MONOTONIC)-started)*1000).round
       audit('request', @current)
       @history << @current; @history.shift while @history.length > 100
       @current = nil
