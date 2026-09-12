@@ -1,5 +1,12 @@
 # Changes
 
+## 1.3.0
+
+- Add isolated SketchUp profiles with separate ports, tokens, config files, registry entries, and generated MCP service names.
+- Add profile selection in the SketchUp extension menu; port conflicts now produce a recoverable status message instead of a raw startup dialog.
+- Add `instance` metadata to bridge and model status so an LLM can confirm the target SketchUp process before editing.
+- Add profile-aware setup, diagnostics, agent configuration generation, and duplicate-port validation.
+
 ## 1.2.0
 
 - Resolve references through parent definitions with consistent local/world transforms; reject ambiguous writes before mutation and enforce locked ancestors.

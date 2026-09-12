@@ -1,6 +1,6 @@
 {
   "name": "@ringo/sketchup-mcp",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "license": "MIT",
   "private": true,
   "description": "Local SketchUp MCP bridge for ChatGPT, Codex and other MCP agents on Windows and macOS",
@@ -20,6 +20,7 @@
     "test:ruby": "node scripts/test-ruby.mjs",
     "install:extension": "node scripts/install.mjs",
     "setup": "node scripts/setup.mjs",
+    "profiles": "node scripts/agent-config.mjs --help",
     "package:rbz": "node scripts/package.mjs",
     "doctor": "node scripts/doctor.mjs",
     "config:agents": "node scripts/agent-config.mjs",

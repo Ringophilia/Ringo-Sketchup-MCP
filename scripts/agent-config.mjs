@@ -2,41 +2,11 @@ import {mkdir, writeFile} from 'node:fs/promises';
 import {dirname, join, resolve} from 'node:path';
 import {fileURLToPath, pathToFileURL} from 'node:url';
 import {parseArgs} from 'node:util';
-
+import {profileConfigPath, validateProfileId} from './install.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-
-export function agentConfigs({node = process.execPath, directory = root, config = process.env.SKETCHUP_MCP_CONFIG} = {}) {
-  const entry = {command: node, args: [join(directory, 'dist', 'mcp-server.js')]};
-  // Only forward the config location. Credentials stay in the local bridge config.
-  if (config) entry.env = {SKETCHUP_MCP_CONFIG: resolve(config)};
-  const codex = [
-    '[mcp_servers.sketchup]',
-    `command = ${JSON.stringify(entry.command)}`,
-    `args = ${JSON.stringify(entry.args)}`,
-    'startup_timeout_sec = 20',
-    'tool_timeout_sec = 90',
-    ...(entry.env ? ['[mcp_servers.sketchup.env]', `SKETCHUP_MCP_CONFIG = ${JSON.stringify(entry.env.SKETCHUP_MCP_CONFIG)}`] : []),
-    '',
-  ].join('\n');
-  return {
-    'codex.toml': codex,
-    'mcp.json': JSON.stringify({mcpServers: {sketchup: entry}}, null, 2) + '\n',
-    'vscode.json': JSON.stringify({servers: {sketchup: {type: 'stdio', ...entry}}}, null, 2) + '\n',
-  };
-}
-
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const {values} = parseArgs({options: {out: {type: 'string'}, help: {type: 'boolean'}}});
-  if (values.help) {
-    console.log('Usage: node scripts/agent-config.mjs [--out DIRECTORY]\nGenerate local ChatGPT/Codex, Claude/Cursor and VS Code MCP configuration snippets.');
-  } else {
-    const output = resolve(values.out ?? join(root, '.agent-config'));
-    await mkdir(output, {recursive: true});
-    for (const [name, content] of Object.entries(agentConfigs())) {
-      const path = join(output, name);
-      await writeFile(path, content, 'utf8');
-      console.log(path);
-    }
-    console.log('Merge the sketchup entry into your agent configuration, then restart its MCP server. See docs/agents.md.');
-  }
-}
+function serviceName(name) { if(typeof name!=='string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(name)) throw Error('实例名称只能包含字母、数字、点、下划线和短横线 / Invalid service name.'); return name; }
+function makeEntry({node, directory, config}) { const entry={command:node,args:[join(directory,'dist','mcp-server.js')]}; if(config) entry.env={SKETCHUP_MCP_CONFIG:resolve(config)}; return entry; }
+function normalizeInstances({node=process.execPath,directory=root,config=process.env.SKETCHUP_MCP_CONFIG,name='sketchup',instances}={}) { const list=instances ?? [{name,config}]; return list.map(item=>({name:serviceName(item.name),entry:makeEntry({node,directory,config:item.config})})); }
+function tomlEntry(name,entry) { const lines=[`[mcp_servers.${name}]`,`command = ${JSON.stringify(entry.command)}`,`args = ${JSON.stringify(entry.args)}`,'startup_timeout_sec = 20','tool_timeout_sec = 90']; if(entry.env) lines.push(`[mcp_servers.${name}.env]`,`SKETCHUP_MCP_CONFIG = ${JSON.stringify(entry.env.SKETCHUP_MCP_CONFIG)}`); lines.push(''); return lines.join('\n'); }
+export function agentConfigs(options={}) { const services=normalizeInstances(options); const mcpServers=Object.fromEntries(services.map(({name,entry})=>[name,entry])); const vscodeServers=Object.fromEntries(services.map(({name,entry})=>[name,{type:'stdio',...entry}])); return {'codex.toml':services.map(service=>tomlEntry(service.name,service.entry)).join(''),'mcp.json':JSON.stringify({mcpServers},null,2)+'\n','vscode.json':JSON.stringify({servers:vscodeServers},null,2)+'\n'}; }
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) { const {values}=parseArgs({options:{out:{type:'string'},profile:{type:'string'},name:{type:'string'},config:{type:'string'},help:{type:'boolean'}}}); if(values.help) console.log('Usage: node scripts/agent-config.mjs [--out DIRECTORY] [--profile project-a [--name friendly-name]]\nGenerate one or more local MCP configuration snippets.'); else { const profile=values.profile ? validateProfileId(values.profile) : undefined; const config=values.config ?? (profile ? profileConfigPath(profile) : process.env.SKETCHUP_MCP_CONFIG); const name=values.name ?? (profile ? `sketchup-${profile}` : 'sketchup'); const output=resolve(values.out ?? join(root,profile ? join('.agent-config',profile) : '.agent-config')); await mkdir(output,{recursive:true}); for(const [file,content] of Object.entries(agentConfigs({config,name}))) {const path=join(output,file); await writeFile(path,content,'utf8'); console.log(path);} console.log(`Generated MCP service ${name}. Merge it into your agent configuration, then restart the MCP server.`); } }

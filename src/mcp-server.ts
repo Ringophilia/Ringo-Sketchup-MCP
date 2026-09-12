@@ -18,7 +18,7 @@ const parentRef = z.object({entity_id:id.optional(),model_id:z.string().optional
 const output = {path:z.string().min(1), overwrite:z.boolean().default(false)};
 const name = z.string().min(1).max(255);
 const defs: Array<{name:string; method:string; description:string; schema:z.ZodRawShape; read?:boolean; destructive?:boolean}> = [
-{name:'bridge_status',method:'bridge.status',description:'Inspect connection, capabilities, queue and recent request states. Runtime permissions and optional APIs are discovered here.',schema:{},read:true},
+{name:'bridge_status',method:'bridge.status',description:'Inspect connection, selected SketchUp profile/instance, capabilities, queue and recent request states. Runtime permissions and optional APIs are discovered here.',schema:{},read:true},
 {name:'model_get_info',method:'model.get_info',description:'Get model session ID, path, units, edit context and runtime capabilities.',schema:{},read:true},
 {name:'model_stats',method:'model.stats',description:'Count entities through instance paths, materials, tags and scenes. Results are bounded by max_entities.',schema:{...modelRef,max_entities:z.number().int().min(1000).max(1000000).default(100000)},read:true},
 {name:'entity_list',method:'entity.list',description:'Paginate entities with paths and world bounds. Recursive traversal distinguishes shared component instances. Use scan_limit for large models; total_exact reports whether total is complete.',schema:{...modelRef,entity_id:id.optional(),path:z.array(id).min(1).max(32).optional(),type:name.optional(),name:name.optional(),tag:name.optional(),recursive:z.boolean().default(false),max_depth:z.number().int().min(0).max(32).default(16),limit:z.number().int().min(1).max(1000).default(100),offset:z.number().int().nonnegative().default(0),include_total:z.boolean().default(false),scan_limit:z.number().int().min(1000).max(1000000).default(100000),unit},read:true},
@@ -58,7 +58,7 @@ const defs: Array<{name:string; method:string; description:string; schema:z.ZodR
 ];
 export function createServer(client = new SketchupClient()) {
   let observedModel: {model_id:string;active_path:number[]} | undefined;
-  const server = new McpServer({name:'Ringo SketchUp MCP',version:VERSION}, {instructions:'Use bridge_status to discover optional APIs. Read model and entity paths before editing. Lengths default to mm; model references are session scoped. Use generic tools or Ruby scripts, never model-specific server additions. Inspect geometry and export a view to verify visual work. A timeout is not proof that a mutation did not execute.'});
+  const server = new McpServer({name:'Ringo SketchUp MCP',version:VERSION}, {instructions:'Call bridge_status first and confirm data.instance.profile_id, data.instance.profile_name, and port identify the intended SketchUp process. Read model_get_info before editing. Lengths default to mm; model references are session scoped. Use generic tools or Ruby scripts, never model-specific server additions. Inspect geometry and export a view to verify visual work. A timeout is not proof that a mutation did not execute.'});
   for (const def of defs) server.registerTool(def.name, {
     description:def.description,inputSchema:z.object(def.schema).strict(),
     annotations:{readOnlyHint:!!def.read,destructiveHint:!!def.destructive,idempotentHint:!!def.read,openWorldHint:def.method==='ruby.eval'}

@@ -2,19 +2,28 @@ module RingoSketchupMCP
   module_function
   def running?; !!@server; end
   def status
-    {version: VERSION, protocol: PROTOCOL, running: running?, port: config['port'], queue_depth: (@jobs || []).length,
+    {version: VERSION, protocol: PROTOCOL, running: running?, instance:instance_identity, startup_error:@startup_error, port: config['port'], queue_depth: (@jobs || []).length,
      clients: (@clients || {}).length, current: @current, recent: (@history || []).last(30),
      capabilities: capabilities, sketchup_version: Sketchup.version, ruby_version: RUBY_VERSION, platform: RUBY_PLATFORM}
   end
   def start
     return if running?
+    @bound_config_path=requested_config_path
     @config = nil
+    @instance_id=SecureRandom.uuid
+    @startup_error=nil
     @clients = {}; @jobs = []; @history = []; @snapshots = {}; @models = {}
     @server = TCPServer.new('127.0.0.1', config['port'])
     # All I/O is nonblocking, with a bounded workload per UI tick. No Ruby worker
     # touches SketchUp objects and no waiting worker can starve another client.
     @timer = UI.start_timer(0.05, true) { tick }
     audit('started', {version: VERSION, protocol: PROTOCOL})
+    true
+  rescue Errno::EADDRINUSE
+    @server=nil
+    @startup_error="端口 #{config['port']} 已被占用 / Port in use. Another SketchUp may own this profile. Choose a different profile in Extensions → Ringo SketchUp MCP → Select Profile."
+    audit('port_conflict',{port:config['port'],profile:config.fetch('profile_id','default')})
+    false
   end
   def stop
     UI.stop_timer(@timer) if @timer
@@ -22,6 +31,7 @@ module RingoSketchupMCP
     @server.close if @server
     @server = nil; @clients = {}; @jobs = []; @current = nil
     audit('stopped', {})
+    @bound_config_path=nil; @config=nil; @startup_error=nil
   end
   def reply(socket, id, result = nil, error = nil)
     state = @clients[socket]; return unless state
@@ -56,7 +66,7 @@ module RingoSketchupMCP
     if method == 'bridge.hello'
       raise BridgeError.new('Unsupported protocol major', -32004, {supported_protocols: [PROTOCOL]}) unless params['protocol'] == PROTOCOL
       state[:authenticated] = true
-      reply(socket, request['id'], {protocol: PROTOCOL, supported_protocols: [PROTOCOL], version: VERSION, capabilities: capabilities})
+      reply(socket, request['id'], {protocol: PROTOCOL, supported_protocols: [PROTOCOL], version: VERSION, capabilities: capabilities,instance:instance_identity})
     else
       raise BridgeError.new('Handshake required', -32001) unless state[:authenticated]
       case method

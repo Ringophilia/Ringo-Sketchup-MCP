@@ -145,7 +145,7 @@ module RingoSketchupMCP
     end
     case method
     when 'model.get_info'
-      {model_id: model_id, title: model.title, path: model.path, modified: model.modified?,
+      {model_id: model_id, instance:instance_identity, title: model.title, path: model.path, modified: model.modified?,
        sketchup_version: Sketchup.version, ruby_version: RUBY_VERSION, units: %w[in ft mm cm m][model.options['UnitsOptions']['LengthUnit']] || 'unknown',
        entity_count: model.entities.length, selection_count: model.selection.length,
        active_path: (model.active_path || []).map { |e| pid(e) }, capabilities: capabilities}

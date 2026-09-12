@@ -27,8 +27,8 @@ try {
         if(result.status!==0) throw Error('npm '+args.join(' ')+' 失败；修复上面的错误后重新运行 / See the error above.');
       }
       const installed=await installExtension(values);
-      const output=join(root,'.agent-config');await mkdir(output,{recursive:true});
-      for(const [name,content] of Object.entries(agentConfigs({config:installed.config}))) await writeFile(join(output,name),content,'utf8');
+      const output=installed.profile==='default' ? join(root,'.agent-config') : join(root,'.agent-config',installed.profile);await mkdir(output,{recursive:true});
+      for(const [name,content] of Object.entries(agentConfigs({config:installed.config,name:installed.profile==='default'?'sketchup':`sketchup-${installed.profile}`}))) await writeFile(join(output,name),content,'utf8');
       console.log(`\n安装完成 / Installed ${installed.version}\n扩展 / Extension: ${installed.plugins}\n配置片段 / Client configs: ${output}`);
       if(installed.backup) console.log('旧版本备份 / Backup: '+installed.backup);
       console.log('1. 关闭并重新打开 SketchUp / Restart SketchUp.\n2. 按 docs/agents.md 导入客户端配置 / Import the generated client config.\n3. npm run doctor\n4. 让 Agent 调用 model_get_info，然后 view_capture / Verify the connection and preview.');

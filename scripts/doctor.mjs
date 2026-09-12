@@ -2,10 +2,11 @@ import {access} from 'node:fs/promises';
 import {dirname,join,resolve} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {parseArgs} from 'node:util';
-import {defaultConfigPath,readJson,validateConfig} from './install.mjs';
+import {defaultConfigPath,profileConfigPath,profilesRegistryPath,readJson,validateConfig,validateProfileId} from './install.mjs';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-export async function diagnose({offline=false,directory=root,configPath=process.env.SKETCHUP_MCP_CONFIG ?? defaultConfigPath(),plugins}={}) {
+export async function diagnose({offline=false,directory=root,profile,configPath=process.env.SKETCHUP_MCP_CONFIG ?? (profile ? profileConfigPath(profile) : defaultConfigPath()),plugins}={}) {
   const checks=[];
+  if(profile) validateProfileId(profile);
   const add=(code,status,message,fix)=>checks.push({code,status,message,...(fix?{fix}: {})});
   const pkg=await readJson(join(directory,'package.json'));
   let ready=true;
@@ -16,6 +17,7 @@ export async function diagnose({offline=false,directory=root,configPath=process.
     validateConfig({...config,token:process.env.SKETCHUP_TOKEN ?? config.token,port:Number(process.env.SKETCHUP_PORT ?? config.port)});
     add('config','ok','本地配置有效 / Local configuration is valid');
   } catch(error) {ready=false;add('config','error',error.code==='ENOENT'?'未安装配置 / Config missing':error.message,'npm run setup');}
+  try { const registry=await readJson(profilesRegistryPath()); const entries=Array.isArray(registry.profiles)?registry.profiles:[]; const conflicts=entries.filter(item=>entries.some(other=>other!==item&&other.port===item.port)); if(conflicts.length) add('profiles','error','Profile 之间存在重复端口 / Profile port conflict','给每个 profile 分配不同 --port'); else add('profiles','ok',`${entries.length} 个 profile 已注册 / profiles registered`); } catch(error) { if(error.code!=='ENOENT') add('profiles','error',error.message); }
   if(!plugins) {
     try {plugins=(await readJson(join(dirname(configPath),'installation.json'))).plugins;}catch{ /* RBZ/manual installs have no receipt. */ }
   }
@@ -44,7 +46,7 @@ export async function diagnose({offline=false,directory=root,configPath=process.
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href) {
   try {
-    const {values}=parseArgs({options:{json:{type:'boolean'},offline:{type:'boolean'},help:{type:'boolean'},plugins:{type:'string'}}});
+    const {values}=parseArgs({options:{json:{type:'boolean'},offline:{type:'boolean'},help:{type:'boolean'},plugins:{type:'string'},profile:{type:'string'}}});
     if(values.help) console.log('node scripts/doctor.mjs [--json] [--offline] [--plugins PATH]');
     else {
       const report=await diagnose(values);

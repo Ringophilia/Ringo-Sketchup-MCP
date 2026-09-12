@@ -88,3 +88,22 @@
 升级时先关闭 SketchUp，再更新仓库并运行 `npm run setup`。备份包含原 loader 与整个实现目录，安装日志打印备份位置。
 
 需要恢复旧版本时，关闭 SketchUp，将备份中的 `ringo_sketchup_mcp.rb` 和 `ringo_sketchup_mcp/` 一起恢复到原 Plugins 目录，并使用匹配版本的 Node 服务。不要混用新旧扩展文件。正常升级保留 token；无需在聊天中复制认证信息。
+
+## 同时做两个项目
+
+为两个项目建立不同 profile：
+
+```sh
+npm run setup -- --profile apple --name "Apple" --port 9876
+npm run setup -- --profile pear --name "Pear" --port 9877
+```
+
+在 `.agent-config/apple/` 和 `.agent-config/pear/` 中分别找到生成的 `mcp.json`、`codex.toml` 和 `vscode.json`，合并两个服务。两个服务会分别显示为 `sketchup-apple` 和 `sketchup-pear`。
+
+打开两个 SketchUp 后，在每个窗口分别选择 **Extensions → Ringo SketchUp MCP → Select Profile**。不要让两个进程都使用 default；如果端口冲突，扩展会在状态栏提示选择另一个 profile。
+
+给 LLM 的安全指令应该明确目标：
+
+> 先调用 sketchup-apple 的 bridge_status，确认 profile_id=apple 和模型路径；只在这个服务中创建苹果。完成后调用 sketchup-pear 的 bridge_status，确认 profile_id=pear；只在这个服务中创建梨子。
+
+每次修改前，LLM 都应该确认服务名、profile、模型标题和模型路径。两个服务的实体 ID、快照和会话不能互换。
