@@ -2,7 +2,7 @@
 
 通用的 SketchUp MCP：TypeScript / Node.js 服务端 + 原生 Ruby 扩展。模型类型不写进服务器；家具、建筑及分析任务通过同一套几何工具和 Ruby API 完成。
 
-当前版本：`1.0.0`。Windows SketchUp 2026 已实际连接验证。macOS 使用同一份 Ruby 扩展和 Node 服务，**尚未做 macOS SketchUp 实机验收**。
+当前版本：`1.1.0`。Windows SketchUp 2026 已实际连接验证。macOS 使用同一份 Ruby 扩展和 Node 服务，**尚未做 macOS SketchUp 实机验收**。
 
 ## 安装与连接
 
@@ -83,7 +83,9 @@ npm run doctor
 
 输入与输出默认毫米，变换矩阵按列排列，平移元素也使用指定单位。轴角旋转优先；Euler 兼容入口按 X、Y、Z 顺序执行。修改对象前查询路径和 `model_id`，在后续操作中携带该 ID 防止编辑错误的模型。
 
-实例路径区分共享组件；修改组件定义中的实体会影响它的其他实例。需要独立修改时，先对父组件调用 `entity_make_unique`，再重新查询子实体。
+实例路径区分共享组件；修改组件定义中的实体会影响它的其他实例。需要独立修改时，先对父组件调用 `entity_make_unique`，再重新查询子实体。创建工具可用 `parent:{path:[...]}` 指定嵌套容器；返回结果会带完整实例路径和世界坐标摘要。共享组件作为父级时，响应会附带影响其他实例的警告。
+
+所有实体修改工具都接受 `model_id`，批量命令也会继承批次级 `model_id`。`batch_run` 在发送到 SketchUp 前复用单工具参数校验，参数错误不会进入桥接队列。`view_export` 除返回文件路径外，会在图片不超过 4 MiB 时直接返回 MCP image 内容，便于 Agent 立即检查结果。`entity_list` 和 `model_stats` 默认最多扫描 100,000 个实体，返回 `total_exact:false` 时应缩小查询或提高 `scan_limit` / `max_entities`，避免大模型阻塞 UI。
 
 工具返回 MCP `structuredContent` 及等价文本，成功含 `success/data/warnings/operation_id/elapsed_ms/queue_ms`，失败含 `isError` 和明确错误码。读写及破坏性工具带 MCP annotations。
 

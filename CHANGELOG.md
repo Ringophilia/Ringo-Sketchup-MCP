@@ -1,5 +1,14 @@
 # Changes
 
+## 1.1.0
+
+- Make nested entity paths and world transforms consistent for list, inspect, create, duplicate and group results.
+- Add explicit parent path references and shared-component mutation warnings.
+- Carry `model_id` through modification, export, selection and batch tool schemas.
+- Validate batch subcommands with the same schemas as standalone tools before queueing.
+- Return small `view_export` images directly as MCP image content for visual verification.
+- Bound large-model entity listing and statistics scans with explicit exactness metadata.
+
 ## 1.0.0
 
 - Generate credential-free, absolute-path MCP configuration for ChatGPT/Codex, Claude/Cursor and VS Code with `npm run config:agents`.

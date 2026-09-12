@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
 import {fakeBridge,hello,respond,TOKEN} from './fixture.js';
+import {mkdir,writeFile,rm} from 'node:fs/promises';
+import {resolve} from 'node:path';
 test('MCP structured results, RPC errors and invalid inputs are unambiguous',async t=>{
   const seen:any[]=[];
   const b=await fakeBridge((r,s)=>{
@@ -19,4 +21,18 @@ test('MCP structured results, RPC errors and invalid inputs are unambiguous',asy
   assert.equal(bad.isError,true);assert.equal((bad.structuredContent as any).error.code,-32008);
   const invalid=await c.callTool({name:'entity_create_box',arguments:{size:[1,-2,3]}});
   assert.equal(invalid.isError,true);assert.equal(seen.length,2);
+  const batchInvalid=await c.callTool({name:'batch_run',arguments:{commands:[{method:'entity_create_box',params:{size:[1,-2,3]}}]}});
+  assert.equal(batchInvalid.isError,true);
+  assert.match((batchInvalid.structuredContent as any).error.message,/Invalid parameters for batch command/);
+  assert.equal(seen.length,2,'invalid nested batch parameters must not reach the bridge');
+  await c.callTool({name:'batch_run',arguments:{model_id:'model-1',commands:[{method:'entity_create_box',params:{size:[1,2,3]}}]}});
+  assert.equal(seen[2].method,'batch.run');
+  assert.equal(seen[2].params.commands[0].method,'entity.create_box');
+  assert.equal(seen[2].params.commands[0].params.model_id,'model-1');
+  const imagePath=resolve('artifacts','mcp-image-test.png');
+  await mkdir(resolve('artifacts'),{recursive:true});
+  await writeFile(imagePath,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64'));
+  const imageResult=await c.callTool({name:'view_export',arguments:{path:imagePath,overwrite:true}});
+  assert.ok((imageResult.content as any[]).some(item=>item.type==='image'));
+  await rm(imagePath,{force:true});
 });

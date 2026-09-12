@@ -37,10 +37,50 @@ module RingoSketchupMCP
         raise BridgeError.new('Path enters a non-container', -32008) unless collection
       end
       raise ArgumentError, 'Empty path' unless e
+      raise BridgeError.new('Entity ID does not match instance path', -32008) if params['entity_id'] && pid(e) != Integer(params['entity_id'])
       e
     else
       find_entity(params.fetch('entity_id'))
     end
+  end
+  def locate_entity(target)
+    root = model.entities.find { |entity| entity == target }
+    return {entity: root, path: [pid(root)], transform: Geom::Transformation.new, parent_transform: Geom::Transformation.new} if root
+    found = nil; occurrences = 0
+    walk do |e, path, transform|
+      if e == target
+        occurrences += 1
+        found ||= {entity: e, path: path, transform: transform, parent_transform: transform}
+        :stop if occurrences >= 2
+      end
+    end
+    if found && occurrences > 1
+      raise BridgeError.new('Entity ID is shared by multiple instance paths; provide path', -32008)
+    end
+    found
+  end
+  def locate_path(path)
+    raise ArgumentError, 'Path must contain 1-32 entity IDs' unless path.is_a?(Array) && (1..32).include?(path.length)
+    collection = model.entities; transform = Geom::Transformation.new; parent_transform = transform; entity = nil
+    path.each_with_index do |id, index|
+      entity = collection.find { |item| pid(item) == Integer(id) }
+      raise BridgeError.new('Instance path is stale', -32008) unless entity && entity.valid?
+      parent_transform = transform
+      if entity.respond_to?(:transformation)
+        transform = transform * entity.transformation
+      end
+      if index < path.length - 1
+        collection = children(entity)
+        raise BridgeError.new('Path enters a non-container', -32008) unless collection
+      end
+    end
+    {entity: entity, path: path.map { |id| Integer(id) }, transform: transform, parent_transform: parent_transform}
+  end
+  def active_context
+    path = (model.active_path || []).map { |e| pid(e) }
+    return {path: [], transform: Geom::Transformation.new} if path.empty?
+    location = locate_path(path)
+    {path: path, transform: location[:transform]}
   end
   def bounds_data(bounds, unit='mm')
     f=factor(unit)
@@ -70,36 +110,59 @@ module RingoSketchupMCP
   def walk(collection=model.entities, path=[], transform=Geom::Transformation.new, depth=0, max_depth=16, &block)
     collection.each do |e|
       p = path + [pid(e)]
-      yield e,p,transform
+      result = yield e,p,transform
+      return :stopped if result == :stop
       nested=children(e)
-      walk(nested,p,transform*e.transformation,depth+1,max_depth,&block) if nested && depth < max_depth
+      if nested && depth < max_depth
+        return :stopped if walk(nested,p,transform*e.transformation,depth+1,max_depth,&block) == :stopped
+      end
     end
+    nil
   end
   def list_entities(params)
     depth = params['recursive'] ? Integer(params.fetch('max_depth',16)) : 0
     depth = [[depth,0].max,32].min
     limit = [[Integer(params.fetch('limit',100)),1].max,1000].min
     offset = [Integer(params.fetch('offset',0)),0].max
-    rows=[]; total=0; unit=params.fetch('unit','mm')
-    root=params['entity_id'] || params['path'] ? children(resolve_ref(params)) : model.entities
-    raise ArgumentError, 'Entity has no children' unless root
-    walk(root,[],Geom::Transformation.new,0,depth) do |e,path,trans|
-      next if params['type'] && e.typename.downcase != params['type'].downcase
-      next if params['name'] && (!e.respond_to?(:name) || !e.name.include?(params['name']))
-      next if params['tag'] && e.layer.name != params['tag']
-      rows << summary(e,path,trans,unit) if total >= offset && rows.length < limit
-      total+=1
+    rows=[]; total=0; scanned=0; truncated=false; unit=params.fetch('unit','mm')
+    scan_limit = [[Integer(params.fetch('scan_limit',100000)), [limit + offset, 1000].max].max, 1000000].min
+    if params['path']
+      located = locate_path(params['path']); raise BridgeError.new('Entity ID does not match path', -32008) if params['entity_id'] && Integer(params['entity_id']) != pid(located[:entity]); root = children(located[:entity]); base_path = located[:path]; base_transform = located[:transform]
+    elsif params['entity_id']
+      parent = resolve_ref(params); located = locate_entity(parent)
+      raise BridgeError.new('Entity reference is not present in the active model', -32008) unless located
+      root = children(parent); base_path = located[:path]; base_transform = located[:transform]
+    else
+      root = model.entities; base_path = []; base_transform = Geom::Transformation.new
     end
-    {entities: rows, total: total, next_offset: offset+rows.length < total ? offset+rows.length : nil, model_id: model_id}
-  end
-  def inspect_entity(params)
-    target=resolve_ref(params); found=nil; wanted=params['path']
-    walk do |e,path,trans|
-      if e == target && (!wanted || path == wanted)
-        found=summary(e,path,trans,params.fetch('unit','mm')); break
+    raise ArgumentError, 'Entity has no children' unless root
+    walk(root,base_path,base_transform,0,depth) do |e,path,trans|
+      if scanned >= scan_limit
+        truncated=true
+        :stop
+      else
+        scanned += 1
+        next if params['type'] && e.typename.downcase != params['type'].downcase
+        next if params['name'] && (!e.respond_to?(:name) || !e.name.include?(params['name']))
+        next if params['tag'] && e.layer.name != params['tag']
+        rows << summary(e,path,trans,unit) if total >= offset && rows.length < limit
+        total+=1
       end
     end
-    found ||= summary(target,[pid(target)])
+    {entities: rows, total: total, total_exact: !truncated, scanned: scanned, scan_limit: scan_limit, next_offset: truncated ? nil : (offset+rows.length < total ? offset+rows.length : nil), model_id: model_id}
+  end
+  def inspect_entity(params)
+    target=resolve_ref(params); found=nil; wanted=params['path']&.map { |id| Integer(id) }
+    if wanted
+      located = locate_path(wanted)
+      raise BridgeError.new('Entity ID does not match instance path', -32008) if params['entity_id'] && located[:entity] != target
+      parent_transform = located[:parent_transform]
+      found = summary(located[:entity], located[:path], parent_transform, params.fetch('unit','mm'))
+    else
+      located = locate_entity(target)
+      raise BridgeError.new('Entity reference is not present in the active model', -32008) unless located
+      found = summary(target, located[:path], located[:transform], params.fetch('unit','mm'))
+    end
     {entity: found}
   end
   def transaction(name)
@@ -141,13 +204,25 @@ module RingoSketchupMCP
        entity_count: model.entities.length, selection_count: model.selection.length,
        active_path: (model.active_path || []).map { |e| pid(e) }, capabilities: capabilities}
     when 'model.stats'
-      counts=Hash.new(0); solids=0
-      walk { |e,_,_| counts[e.typename]+=1; solids+=1 if e.respond_to?(:manifold?) && e.manifold? }
-      {model_id: model_id, counts: counts, solid_instances: solids, definitions:model.definitions.length, materials:model.materials.length,tags:model.layers.length,scenes:model.pages.length}
+      counts=Hash.new(0); solids=0; scanned=0; max_entities=[[Integer(params.fetch('max_entities',100000)),1000].max,1000000].min; truncated=false
+      walk do |e,_,_|
+        if scanned >= max_entities
+          truncated=true
+          :stop
+        else
+          scanned+=1; counts[e.typename]+=1; solids+=1 if e.respond_to?(:manifold?) && e.manifold?
+        end
+      end
+      {model_id: model_id, counts: counts, solid_instances: solids, scanned: scanned, max_entities: max_entities, total_exact: !truncated, definitions:model.definitions.length, materials:model.materials.length,tags:model.layers.length,scenes:model.pages.length}
     when 'entity.list'; list_entities(params)
     when 'entity.inspect'; inspect_entity(params)
     when 'selection.get'
-      {entities: model.selection.map { |e| inspect_entity({'entity_id'=>pid(e)})[:entity] }}
+      prefix=(model.active_path || []).map { |e| pid(e) }
+      {entities: model.selection.map { |e|
+        ref={'entity_id'=>pid(e)}
+        ref['path']=prefix + [pid(e)] unless prefix.empty?
+        inspect_entity(ref)[:entity]
+      }}
     when 'selection.set'
       list=Array(params.fetch('entity_ids')).map { |id| find_entity(id) }
       model.selection.clear; model.selection.add(list) unless list.empty?
@@ -203,17 +278,19 @@ module RingoSketchupMCP
     when 'entity.duplicate'
       e=resolve_ref(params)
       raise ArgumentError,'Only group/component duplication supported' unless children(e)
-      copy=e.is_a?(Sketchup::Group) ? e.copy : e.parent.entities.add_instance(e.definition,e.transformation)
+      copy=e.is_a?(Sketchup::Group) ? e.copy : e.parent.add_instance(e.definition,e.transformation)
       copy.name=params['name'] if params['name']
       copy.transform!(Geom::Transformation.translation(point(params.fetch('translation',[0,0,0]),params['unit'])))
-      {entity: summary(copy,[pid(copy)])}
+      source = params['path'] ? locate_path(params['path']) : locate_entity(e)
+      source_parent_path = source[:path][0...-1]
+      {entity: summary(copy, source_parent_path + [pid(copy)], source[:parent_transform], params.fetch('unit','mm'))}
     when 'entity.make_unique'
       e=resolve_ref(params); raise ArgumentError,'Not a group/component' unless e.respond_to?(:make_unique)
       e.make_unique; inspect_entity(params)
     when 'entity.group'
       items=params.fetch('entity_ids').map { |id| find_entity(id) }
       raise ArgumentError,'Group entities must be in current edit context' unless items.all? { |e| model.active_entities.include?(e) }
-      g=model.active_entities.add_group(items); g.name=params.fetch('name','Group'); {entity: summary(g,[pid(g)])}
+      context=active_context; g=model.active_entities.add_group(items); g.name=params.fetch('name','Group'); {entity: summary(g,context[:path]+[pid(g)],context[:transform])}
     when 'entity.set_material'
       e=resolve_ref(params); mat=set_material({'name'=>params.fetch('material'),'color'=>params['color']}.reject { |_,v| v.nil? })
       if params['scope']=='faces'
@@ -295,7 +372,25 @@ module RingoSketchupMCP
   end
   def create_geometry(method,params)
     unit=params.fetch('unit','mm'); origin=point(params.fetch('origin',[0,0,0]),unit)
-    container=params['parent_id'] ? children(find_entity(params['parent_id'])) : model.active_entities
+    parent_params = params['parent'] || (params['parent_id'] ? {'entity_id'=>params['parent_id']} : nil)
+    if parent_params
+      raise BridgeError.new('Parent belongs to another model/session', -32007) if parent_params['model_id'] && parent_params['model_id'] != model_id
+      parent_location = parent_params['path'] ? locate_path(parent_params['path']) : locate_entity(resolve_ref(parent_params))
+      raise BridgeError.new('Parent entity is not present in the active model', -32008) unless parent_location
+      if parent_params['path'] && parent_params['entity_id'] && pid(parent_location[:entity]) != Integer(parent_params['entity_id'])
+        raise BridgeError.new('Parent entity ID does not match path', -32008)
+      end
+      parent_entity = parent_location[:entity]
+      container = children(parent_entity)
+      parent_path = parent_location[:path]
+      parent_transform = parent_location[:transform]
+      if parent_entity.is_a?(Sketchup::ComponentInstance) && parent_entity.definition.respond_to?(:instances) && parent_entity.definition.instances.length > 1
+        @warnings << 'Parent is a shared component; created geometry affects all instances. Call entity_make_unique first for an independent edit.'
+      end
+    else
+      container=model.active_entities
+      context=active_context; parent_path=context[:path]; parent_transform=context[:transform]
+    end
     raise ArgumentError,'Parent is not a container' unless container
     g=container.add_group; g.name=params.fetch('name','Geometry')
     g.layer=(model.layers[params['tag']] || model.layers.add(params['tag'])) if params['tag']
@@ -325,7 +420,7 @@ module RingoSketchupMCP
     end
     g.entities.grep(Sketchup::Edge).each { |e| e.soft=true; e.smooth=true } if params['smooth']
     g.transform!(Geom::Transformation.translation(origin))
-    {entity:summary(g,[pid(g)],Geom::Transformation.new,unit)}
+    {entity:summary(g,parent_path + [pid(g)],parent_transform,unit)}
   end
   def snapshot_entities
     rows=[]
