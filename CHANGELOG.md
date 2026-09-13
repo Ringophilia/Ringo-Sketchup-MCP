@@ -1,5 +1,11 @@
 # Changes
 
+## 1.3.2
+
+- Clarify that multi-instance profile and service names are user-defined labels, and move the acceptance example to neutral project profiles.
+- Move the multi-instance QA fixture out of the user setup flow; use generic geometry, configurable profiles and portable configuration paths with `test:multi-instance`.
+- Require explicit opt-in and verify both target identities before the QA fixture clears either disposable model.
+
 ## 1.3.1
 
 - Restore the previously verified transitive dependency lock for reproducible Linux/macOS `npm ci`.

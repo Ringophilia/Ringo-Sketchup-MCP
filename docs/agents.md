@@ -99,12 +99,12 @@ TCP `127.0.0.1:9876` 是项目内部桥接协议，**不是 HTTP MCP endpoint**�
 多实例使用独立 profile，不共享端口：
 
 ```sh
-npm run setup -- --profile apple --name "Apple" --port 9876
-npm run setup -- --profile pear --name "Pear" --port 9877
-npm run config:agents -- --profile apple
-npm run config:agents -- --profile pear
+npm run setup -- --profile project-a --name "Project A" --port 9876
+npm run setup -- --profile project-b --name "Project B" --port 9877
+npm run config:agents -- --profile project-a
+npm run config:agents -- --profile project-b
 ```
 
-请把两个 profile 生成的服务都合并到客户端配置。LLM 必须把服务名视为目标边界：调用 `sketchup-apple` 的工具只会连接 apple profile，调用 `sketchup-pear` 的工具只会连接 pear profile。每个目标的第一步都是 `bridge_status`，检查 `data.instance.profile_id`、`profile_name`、`port` 和进程 ID。
+请把两个 profile 生成的服务都合并到客户端配置。LLM 必须把服务名视为目标边界：调用 `sketchup-project-a` 的工具只会连接 project-a profile，调用 `sketchup-project-b` 的工具只会连接 project-b profile。每个目标的第一步都是 `bridge_status`，检查 `data.instance.profile_id`、`profile_name`、`port` 和进程 ID。示例名称只是路由标签，用户可按实际项目改名。
 
 扩展菜单中的 **Select Profile** 只改变当前 SketchUp 进程使用的 profile，并重新启动本地桥接。不要在两个 SketchUp 中选择同一个 profile；`npm run doctor -- --profile <id>` 可以检查配置和端口注册。

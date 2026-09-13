@@ -94,20 +94,16 @@
 为两个项目建立不同 profile：
 
 ```sh
-npm run setup -- --profile apple --name "Apple" --port 9876
-npm run setup -- --profile pear --name "Pear" --port 9877
+npm run setup -- --profile project-a --name "Project A" --port 9876
+npm run setup -- --profile project-b --name "Project B" --port 9877
 ```
 
-在 `.agent-config/apple/` 和 `.agent-config/pear/` 中分别找到生成的 `mcp.json`、`codex.toml` 和 `vscode.json`，合并两个服务。两个服务会分别显示为 `sketchup-apple` 和 `sketchup-pear`。
+在 `.agent-config/project-a/` 和 `.agent-config/project-b/` 中分别找到生成的 `mcp.json`、`codex.toml` 和 `vscode.json`，合并两个服务。两个服务会分别显示为 `sketchup-project-a` 和 `sketchup-project-b`。profile ID 是用户自定义的路由标签。
 
 打开两个 SketchUp 后，在每个窗口分别选择 **Extensions → Ringo SketchUp MCP → Select Profile**。不要让两个进程都使用 default；如果端口冲突，扩展会在状态栏提示选择另一个 profile。
 
 给 LLM 的安全指令应该明确目标：
 
-> 先调用 sketchup-apple 的 bridge_status，确认 profile_id=apple 和模型路径；只在这个服务中创建苹果。完成后调用 sketchup-pear 的 bridge_status，确认 profile_id=pear；只在这个服务中创建梨子。
+> 先调用 sketchup-project-a 的 bridge_status，确认 profile_id=project-a 和模型路径；只在这个服务中修改项目 A。完成后调用 sketchup-project-b 的 bridge_status，确认 profile_id=project-b；只在这个服务中修改项目 B。
 
-每次修改前，LLM 都应该确认服务名、profile、模型标题和模型路径。两个服务的实体 ID、快照和会话不能互换。仓库中的 `npm run test:two-instance` 会分别在 apple/pear profile 里创建和保存示例模型，用于验证隔离。
-
-## 双实例验收脚本
-
-在已准备好 `apple` 和 `pear` profile、并已打开两个 SketchUp 模型时运行 `npm run test:two-instance`。脚本会清空两个测试模型，分别创建苹果和梨子，导出 `artifacts/apple-multi-instance.png`、`artifacts/pear-multi-instance.png`，并保存两个 SKP。
+每次修改前，LLM 都应该确认服务名、profile、模型标题和模型路径。两个服务的实体 ID、快照和会话不能互换。开发者验证多实例隔离的方法见[验证记录](validation.md)。

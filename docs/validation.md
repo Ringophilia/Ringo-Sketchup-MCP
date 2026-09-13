@@ -2,7 +2,7 @@
 
 ## 1.3.1 · 2026-09-12
 
-- 双实例 acceptance：apple/9876 与 pear/9877 两个 SketchUp 进程均连接成功，profile、instance_id、model_id 各自独立；分别创建并保存了 apple-multi-instance.skp 和 pear-multi-instance.skp，两个 PNG 预览已生成。
+- 双实例 acceptance：两个独立 profile（9876/9877）对应的 SketchUp 进程均连接成功，profile、instance_id、model_id 各自独立；QA 夹具分别创建并保存了两个一次性测试模型和 PNG 预览。profile 名称和模型内容均不是产品约定。
 - 修复真实 SketchUp 材质 RGB 必须使用整数的问题。
 
 ## 1.2.0 · 2026-09-12
@@ -26,6 +26,16 @@
 行为测试使用小型 SketchUp API 替身，不能证明原生几何内核行为；实机脚本补充验证了这一部分。开发验证在新建的测试模型和独立桥接端口上运行，工作区实现的 source_location 已核对。
 
 JSON 日志与图片保存在被 Git 忽略的 `artifacts/`，脚本可以复现。CI 覆盖 Windows/macOS/Linux × Node 22/24、Ruby 2.7/3.2/3.3 的语法及 Ruby 行为测试；当前提交结果以 [GitHub Actions](https://github.com/Ringophilia/Ringo-Sketchup-MCP/actions) 为准。
+
+## 多实例 QA 验收
+
+`scripts/qa/multi-instance-demo.mjs` 是开发验收脚本。它会清空并保存两个模型，应当在两个一次性测试模型中运行。安装和日常建模无需运行此脚本。
+
+```sh
+npm run test:multi-instance -- --allow-destructive --profile-a project-a --profile-b project-b
+```
+
+profile ID 可自行指定。配置目录遵循安装器的 Windows/macOS 路径，也可传入 `--profiles-dir PATH`；用 `--out PATH` 覆盖默认的 `artifacts/` 输出目录。脚本先核对两个连接的 profile、进程、端口和模型会话，再分别创建通用盒体和圆柱，输出 `<profile>-multi-instance.png` 与 `<profile>-multi-instance.skp`。未传 `--allow-destructive` 时不会连接或修改模型。
 
 ## 仍然保留的边界
 

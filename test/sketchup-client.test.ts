@@ -9,13 +9,13 @@ test('handshake tolerates minor version differences and UTF-8 split/out-of-order
     if(hello(r,s))return;
     requests.push(r);
     if(requests.length===2){
-      const bytes=Buffer.from(JSON.stringify({jsonrpc:'2.0',id:requests[1].id,result:'苹果 🍎'})+'\n'+JSON.stringify({jsonrpc:'2.0',id:requests[0].id,result:42})+'\n');
-      const split=bytes.indexOf(Buffer.from('苹果'))+1;s.write(bytes.subarray(0,split));setTimeout(()=>s.write(bytes.subarray(split)),5);
+      const bytes=Buffer.from(JSON.stringify({jsonrpc:'2.0',id:requests[1].id,result:'通用载荷 🧩'})+'\n'+JSON.stringify({jsonrpc:'2.0',id:requests[0].id,result:42})+'\n');
+      const split=bytes.indexOf(Buffer.from('通用'))+1;s.write(bytes.subarray(0,split));setTimeout(()=>s.write(bytes.subarray(split)),5);
     }
   });
   const c=new SketchupClient({port:b.port,token:TOKEN,timeoutMs:2000});
   t.after(async()=>{await c.close();await b.close()});
-  assert.deepEqual(await Promise.all([c.call('first'),c.call('second')]),[42,'苹果 🍎']);
+  assert.deepEqual(await Promise.all([c.call('first'),c.call('second')]),[42,'通用载荷 🧩']);
   assert.equal(c.capabilities.pbr,false);
 });
 test('disconnect drops unfinished frame; next request reconnects without replaying mutations',async t=>{

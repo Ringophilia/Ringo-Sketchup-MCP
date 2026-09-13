@@ -2,7 +2,7 @@
 
 让支持 MCP 的 AI 在桌面 SketchUp 中查询、建模、编辑和查看结果。Node.js 提供标准 stdio MCP，Ruby 扩展在 SketchUp UI 线程操作模型。
 
-当前版本 **1.3.1**。Windows SketchUp 26.2.243 已完成实机回归。macOS 有安装路径、CI 和同一份 Ruby 实现，**尚未完成 macOS SketchUp 实机验收**。仅支持桌面 SketchUp，网页和 iPad 版不适用。
+当前版本 **1.3.2**。Windows SketchUp 26.2.243 已完成实机回归。macOS 有安装路径、CI 和同一份 Ruby 实现，**尚未完成 macOS SketchUp 实机验收**。仅支持桌面 SketchUp，网页和 iPad 版不适用。
 
 ## 快速开始
 
@@ -61,18 +61,17 @@ npm run doctor -- --offline
 1.3.0 支持 profile。每个 profile 有独立的端口、token、配置文件和 MCP 服务名；这让两个 SketchUp 可以同时运行而不会争用 `9876`。
 
 ```sh
-npm run setup -- --profile apple --name "Apple project" --port 9876
-npm run setup -- --profile pear --name "Pear project" --port 9877
-npm run config:agents -- --profile apple
-npm run config:agents -- --profile pear
-npm run test:two-instance
+npm run setup -- --profile project-a --name "Project A" --port 9876
+npm run setup -- --profile project-b --name "Project B" --port 9877
+npm run config:agents -- --profile project-a
+npm run config:agents -- --profile project-b
 ```
 
-每个 profile 的配置片段会放在 `.agent-config/<profile>/`。将两个目录中的服务合并到 Agent 客户端后，服务名分别是 `sketchup-apple` 和 `sketchup-pear`。在两个 SketchUp 窗口中打开 **Extensions → Ringo SketchUp MCP → Select Profile**，给当前进程选择对应 profile；状态菜单会显示 profile 名称、端口和进程 ID。
+每个 profile 的配置片段会放在 `.agent-config/<profile>/`。将两个目录中的服务合并到 Agent 客户端后，服务名分别是 `sketchup-project-a` 和 `sketchup-project-b`。`project-a`、`project-b` 只是示例标签，实际可按项目或窗口用途自由命名；它们没有与任何特定模型类型的关联。在两个 SketchUp 窗口中打开 **Extensions → Ringo SketchUp MCP → Select Profile**，给当前进程选择对应 profile；状态菜单会显示 profile 名称、端口和进程 ID。
 
 LLM 使用多实例时，必须先对目标服务调用 `bridge_status`，确认 `data.instance.profile_id` 和 `data.instance.profile_name`，再调用 `model_get_info` 和修改工具。项目 A 的 MCP 服务不会路由到项目 B，也不会根据当前前台窗口猜目标。
 
-`npm run doctor -- --profile apple` 检查指定 profile；重复端口会在安装时直接拒绝。关闭某个 SketchUp 不会影响其他 profile。
+`npm run doctor -- --profile project-a` 检查指定 profile；重复端口会在安装时直接拒绝。关闭某个 SketchUp 不会影响其他 profile。
 
 ## 通用功能
 
