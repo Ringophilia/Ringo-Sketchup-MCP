@@ -1,5 +1,10 @@
 # Changes
 
+## 1.3.3
+
+- Update the indirect `proxy-addr` dependency from 2.0.7 to 2.0.8 to fix IP spoofing under affected proxy trust configurations (CVE-2026-90711, #2).
+- Update the indirect `ip-address` dependency from 10.7.0 to 10.7.3, including fixes for cross-family subnet comparisons and oversized address input handling (#1).
+
 ## 1.3.2
 
 - Clarify that multi-instance profile and service names are user-defined labels, and move the acceptance example to neutral project profiles.
