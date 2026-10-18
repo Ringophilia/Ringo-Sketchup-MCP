@@ -30,7 +30,7 @@
     "test:multi-instance": "node scripts/qa/multi-instance-demo.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.18.0",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
