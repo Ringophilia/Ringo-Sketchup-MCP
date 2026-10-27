@@ -12,7 +12,7 @@ export function readConfig(): {host: string; port: number; token: string; timeou
   try { file = JSON.parse(readFileSync(configPath(), 'utf8').replace(/^\uFEFF/, '')); } catch (e) { if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e; }
   const host = String(process.env.SKETCHUP_HOST ?? file.host ?? '127.0.0.1');
   const port = Number(process.env.SKETCHUP_PORT ?? file.port ?? 9876);
-  const timeoutMs = Number(process.env.SKETCHUP_TIMEOUT_MS ?? 60000);
+  const timeoutMs = Number(process.env.SKETCHUP_TIMEOUT_MS ?? file.timeout_ms ?? 60000);
   const token = String(process.env.SKETCHUP_TOKEN ?? file.token ?? '');
   if (host !== '127.0.0.1') throw new Error('The bridge only supports IPv4 loopback (127.0.0.1)');
   if (!Number.isInteger(port) || port < 1 || port > 65535 || !Number.isFinite(timeoutMs) || timeoutMs < 100 || timeoutMs > 600000) throw new Error('Invalid port or timeout');

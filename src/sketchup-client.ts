@@ -69,7 +69,9 @@ export class SketchupClient {
       signal?.addEventListener('abort', cancel, {once: true});
       this.pending.set(id, {resolve, reject, timer, detach: () => signal?.removeEventListener('abort', cancel)});
       if (signal?.aborted) { cancel(); return; }
-      this.socket!.write(wire, (e) => { if (e && this.pending.has(id)) { this.finish(id); reject(new RpcError(e.message, -32002)); } });
+      const socket = this.socket;
+      if (!socket || socket.destroyed) { this.finish(id); reject(new RpcError('Connection lost before the request was sent; it was not submitted.', -32002, {request_id: id, outcome: 'not_sent'})); return; }
+      socket.write(wire, (e) => { if (e && this.pending.has(id)) { this.finish(id); reject(new RpcError(e.message, -32002)); } });
     });
   }
   private finish(id: string): void { const p = this.pending.get(id); if (p) { clearTimeout(p.timer); p.detach(); this.pending.delete(id); } }

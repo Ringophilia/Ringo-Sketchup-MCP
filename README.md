@@ -7,7 +7,7 @@
 一座连接 MCP Agent 与桌面 SketchUp 的本地桥梁：通用、安全、可撤销。
 
 [![CI](https://github.com/Ringophilia/Ringo-Sketchup-MCP/actions/workflows/check.yml/badge.svg)](https://github.com/Ringophilia/Ringo-Sketchup-MCP/actions/workflows/check.yml)
-[![Version](https://img.shields.io/badge/version-1.3.3-2f81f7)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.3.4-2f81f7)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Node](https://img.shields.io/badge/node-22%20%7C%2024-5fa04e?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![SketchUp](https://img.shields.io/badge/SketchUp-Desktop-005f9e)](docs/compatibility.md)
@@ -226,7 +226,7 @@ npm run setup -- --profile project-b --name "Project B" --port 9877
 | macOS | `~/Library/Application Support/RingoSketchUpMCP/config.json` |
 | 自定义 | 通过环境变量 `SKETCHUP_MCP_CONFIG` 指定 |
 
-可以用环境变量覆盖：`SKETCHUP_PORT`、`SKETCHUP_TOKEN`、`SKETCHUP_TIMEOUT_MS`、`SKETCHUP_ENABLE_RUBY_EVAL`。
+可以用环境变量覆盖：`SKETCHUP_PORT`、`SKETCHUP_TOKEN`、`SKETCHUP_TIMEOUT_MS`、`SKETCHUP_ENABLE_RUBY_EVAL`。Node 端的请求超时也可以写在配置文件的 `timeout_ms` 中（单位毫秒，范围 100–600000，默认 60000），环境变量优先。
 
 > 从 Finder 启动的 Mac 应用通常不会继承 shell 环境变量，建议直接使用默认配置文件。
 

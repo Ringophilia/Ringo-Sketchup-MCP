@@ -5,7 +5,7 @@ require 'fileutils'
 require 'time'
 require 'stringio'
 module RingoSketchupMCP
-  VERSION = '1.3.3'
+  VERSION = '1.3.4'
   PROTOCOL = 3
   MAX_FRAME = 4 * 1024 * 1024
   module_function

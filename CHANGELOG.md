@@ -1,5 +1,15 @@
 # Changes
 
+## 1.3.4
+
+- Update `@modelcontextprotocol/sdk` to 1.32.2 and refresh its transitive dependencies (`body-parser`, `fast-uri`, `hono`, `ip-address`) to clear the published advisories.
+- Migrate to `zod` 4.6.7 to fix memory exhaustion while validating oversized constrained collections; tool schemas and validation messages are otherwise unchanged.
+- A connection lost between connecting and sending now fails with `-32002` and `outcome: not_sent` instead of an unhandled `TypeError`.
+- Read the Node request timeout from `timeout_ms` in the config file; `SKETCHUP_TIMEOUT_MS` still takes precedence.
+- Quote the Node test glob so POSIX shells cannot silently skip top-level tests.
+- Add `npm run version:bump` and a test that keeps every shipped version marker in sync with `package.json`.
+- Add Dependabot version updates for npm and GitHub Actions, and an `npm audit` job to CI.
+
 ## 1.3.3
 
 - Update the indirect `proxy-addr` dependency from 2.0.7 to 2.0.8 to fix IP spoofing under affected proxy trust configurations (CVE-2026-90711, #2).

@@ -26,6 +26,15 @@ test('disconnect drops unfinished frame; next request reconnects without replayi
   await assert.rejects(c.call('mutate'),/Connection lost/);
   assert.deepEqual(await c.call('inspect'),{ok:true});assert.equal(count,2);
 });
+test('a socket lost between connect and send rejects cleanly as not sent',async t=>{
+  const b=await fakeBridge((r,s)=>{if(hello(r,s))return;respond(s,r,{ok:true})});
+  const c=new SketchupClient({port:b.port,token:TOKEN,timeoutMs:1000});
+  t.after(async()=>{await c.close();await b.close()});
+  await c.call('inspect');
+  const internal=c as any; internal.socket.destroy(); internal.socket=undefined;
+  await assert.rejects(internal.send('mutate',{}),(e:any)=>e.code===-32002 && e.data.outcome==='not_sent');
+  assert.equal(internal.pending.size,0);
+});
 test('timeouts send cancellation and never replay',async t=>{
   const seen:string[]=[];
   const b=await fakeBridge((r,s)=>{if(hello(r,s))return;seen.push(r.method)});
