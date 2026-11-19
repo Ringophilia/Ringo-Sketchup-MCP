@@ -1,5 +1,20 @@
 # 验证记录
 
+## 2.0.0 · 2026-11-19
+
+验证宿主：Windows 11，SketchUp 26.2.243（嵌入式 Ruby 3.2.2 + Minitest 5.16.3），Node.js v24.19.0。
+
+| 验收范围 | 验证方式与实测证据 |
+|---|---|
+| 类型、Lint、构建与 Node 测试 | `npm run check`（`tsc --noEmit` + Biome + `tsc` + Node 测试）：**29/29** 通过，覆盖工具 `title`/`outputSchema`、Prompts/Resources、圆柱单位换算与互斥校验、进度帧协议解析与流式转发、CLI/`npx` 配置生成、`npm pack --dry-run` 及 Ruby `HANDLERS`/`OPERATION_NAMES` 跨语言契约校验 |
+| Node 覆盖率 | `npm run test:coverage`：**29/29** 通过，总体行覆盖率 87.92% |
+| Ruby 语法与契约测试 | 通过 SketchUp 2026 嵌入式 Ruby 3.2.2（`x64-ucrt-ruby320.dll`）：11/11 `.rb` 文件全部通过 `RubyVM::InstructionSequence.compile_file`；`test/ruby/contracts_test.rb` **18 runs, 92 assertions, 0 failures, 0 errors, 0 skips**（含圆柱换算、分页/上限、Undo 名称、隔离沙盒、时间预算队列、Profile 持久化/冲突自动切换与协商式 `bridge.progress`） |
+| 通用实机操作 | `npm run test:live`（SketchUp 26.2.243）：54 次调用、36 项检查全部通过，含 `unit: 'cm'` 圆柱、`selection_get` 分页、`model_diff` 上限、`batch_run` 实时进度帧、Prompts/Resources 与 `sketchup_run_ruby` 变量/方法隔离 |
+| 复杂模型实机回归 | `npm run test:references`（SketchUp 26.2.243）：6 组场景全部通过 |
+| 大模型与高频查询性能 | `npm run test:performance`（5000 实例）：首页 52 ms、末尾实例定位 56 ms、100 次顺序 `entity_inspect` 6247 ms、100 次并发 `entity_inspect` 398 ms |
+| 认证与协议实机 | `node scripts/security-test.mjs`：6 项安全与协议检查全部通过 |
+| 依赖安全与发布包 | `npm audit --omit=dev`：0 漏洞；`npm pack --dry-run` 校验打包内容完整；`npm run package:rbz` 生成 `release/ringo-sketchup-mcp-2.0.0.rbz` 及 `.sha256`；在实机 SketchUp 中录制的演示动图保存于 `docs/assets/demo.gif` |
+
 ## 1.3.1 · 2026-09-12
 
 - 双实例 acceptance：两个独立 profile（9876/9877）对应的 SketchUp 进程均连接成功，profile、instance_id、model_id 各自独立；QA 夹具分别创建并保存了两个一次性测试模型和 PNG 预览。profile 名称和模型内容均不是产品约定。

@@ -20,8 +20,12 @@ jobs:
           ruby-version: '3.2'
       - run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
       - run: npm run check
+      - run: npm run test:coverage
       - run: npm run check:ruby
+      - run: gem install --no-document simplecov
       - run: npm run test:ruby
+        env:
+          COVERAGE: '1'
       - run: npm run package:rbz
       - uses: actions/upload-artifact@v4
         with:
@@ -45,6 +49,6 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
-      - run: ruby -c extension/ringo_sketchup_mcp/operations.rb
-      - run: ruby -c extension/ringo_sketchup_mcp/server.rb
+      - run: ruby -c extension/ringo_sketchup_mcp.rb
+      - run: for f in extension/ringo_sketchup_mcp/*.rb test/ruby/*.rb; do ruby -c "$f"; done
       - run: ruby test/ruby/contracts_test.rb

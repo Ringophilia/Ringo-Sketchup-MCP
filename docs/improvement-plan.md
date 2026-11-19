@@ -156,35 +156,41 @@ zod 3 → 4 是破坏性升级，SDK 新版本已支持 zod v4。建议在升级
 
 ### v1.4.0 · API 一致性与性能（约 1 周）
 
-| # | 任务 | 关联 |
-|---|---|---|
-| 1 | 圆柱改为 `radius` / `height` + `unit`，旧字段兼容 | P1-1 |
-| 2 | 按时间预算批量执行队列 | P1-5 |
-| 3 | `selection_get` 分页，`model_diff` 设置上限 | P1-6 |
-| 4 | 工具 `title`、`outputSchema`，可读的 Undo 名称 | P2-2、P2-5 |
-| 5 | 新增 workflow Prompt 与只读 Resources | P2-5 |
-| 6 | Profile 持久化 / 自动选择空闲 profile | P2-3 |
-| 7 | **macOS 实机验收**，更新 validation.md | 验证缺口 |
+> ✅ 第 1–6 项（及 P2-2 剩余项）已在 1.4.0 完成；第 7 项（macOS 实机验收）需在物理 macOS SketchUp 机器上运行，仍待完成。
+
+| # | 任务 | 关联 | 状态 |
+|---|---|---|---|
+| 1 | 圆柱改为 `radius` / `height` + `unit`，旧字段兼容 | P1-1 | ✅ |
+| 2 | 按时间预算批量执行队列 | P1-5 | ✅ |
+| 3 | `selection_get` 分页，`model_diff` 设置上限 | P1-6 | ✅ |
+| 4 | 工具 `title`、`outputSchema`，可读的 Undo 名称 | P2-2、P2-5 | ✅ |
+| 5 | 新增 workflow Prompt 与只读 Resources | P2-5 | ✅ |
+| 6 | Profile 持久化 / 自动选择空闲 profile | P2-3 | ✅ |
+| 7 | **macOS 实机验收**，更新 validation.md | 验证缺口 | ⏳ 待物理机验收 |
 
 ### v1.5.0 · 可维护性（约 1–2 周，可与 1.4 并行）
 
-| # | 任务 | 关联 |
-|---|---|---|
-| 1 | 引入格式化与 lint，先做一次纯格式化提交 | P2-4 |
-| 2 | 拆分工具定义模块；Ruby `dispatch` 改为方法表 | P2-4 |
-| 3 | zod v4 迁移 | P1-4 |
-| 4 | CI 收集覆盖率（`node --test --experimental-test-coverage`，Ruby 用 SimpleCov） | 验证缺口 |
+> ✅ 第 1、2、4 项已合并并在 1.4.0 完成（第 3 项 zod v4 已在 1.3.4 完成）。
+
+| # | 任务 | 关联 | 状态 |
+|---|---|---|---|
+| 1 | 引入格式化与 lint，先做一次纯格式化提交 | P2-4 | ✅ |
+| 2 | 拆分工具定义模块；Ruby `dispatch` 改为方法表 | P2-4 | ✅ |
+| 3 | zod v4 迁移 | P1-4 | ✅（1.3.4） |
+| 4 | CI 收集覆盖率（`node --test --experimental-test-coverage`，Ruby 用 SimpleCov） | 验证缺口 | ✅ |
 
 ### v2.0 · 分发体验
 
-| # | 任务 | 说明 |
-|---|---|---|
-| 1 | 发布 npm 包，支持 `npx @ringo/sketchup-mcp setup` | 免克隆、免构建；配置中的 `command` 可直接指向 `npx` |
-| 2 | tag 触发的 Release 工作流 | 自动附带 RBZ、SHA-256 和变更说明 |
-| 3 | RBZ 签名 / 上架 Extension Warehouse | 消除未签名扩展的加载提示 |
-| 4 | 英文 README 与文档 | `README.en.md` 加双向链接 |
-| 5 | 演示 GIF、示例提示词库 | 降低上手门槛 |
-| 6 | 协议级进度帧（批次与长操作） | 需要协议 minor 能力协商 |
+> ✅ 本阶段所有本地可落地项均已完成并在 SketchUp 26.2.243 实机验证；需外部平台/账号的操作（执行 `npm publish`、Trimble 官方 RBZ 签名/上架、macOS 物理机实机验收）已准备就绪并标注于下表。
+
+| # | 任务 | 说明 | 状态 |
+|---|---|---|---|
+| 1 | 发布 npm 包，支持 `npx @ringo/sketchup-mcp setup` | 免克隆、免构建；配置中的 `command` 可直接指向 `npx` | ✅ 代码与 `npm pack` 验证完成（待 `npm publish`） |
+| 2 | tag 触发的 Release 工作流 | 自动附带 RBZ、SHA-256 和变更说明 | ✅（`.github/workflows/release.yml` + `scripts/release-notes.mjs`） |
+| 3 | RBZ 签名 / 上架 Extension Warehouse | 消除未签名扩展的加载提示 | ⏳ 已提供签名与提交流程指南（`docs/publishing.md`，需 Trimble 开发者账号） |
+| 4 | 英文 README 与文档 | `README.en.md` 加双向链接 | ✅（`README.md` ↔ `README.en.md`） |
+| 5 | 演示 GIF、示例提示词库 | 降低上手门槛 | ✅（`docs/assets/demo.gif` + `docs/prompts.md`） |
+| 6 | 协议级进度帧（批次与长操作） | 需要协议 minor 能力协商 | ✅（`bridge.progress` + `capabilities.progress: 'batch_steps'`） |
 
 ---
 

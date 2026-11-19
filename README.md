@@ -2,12 +2,14 @@
 
 # Ringo SketchUp MCP
 
+**中文** · [English](README.en.md)
+
 **让 AI 走进你的 SketchUp：查询、建模、编辑，再亲眼看看结果。**
 
 一座连接 MCP Agent 与桌面 SketchUp 的本地桥梁：通用、安全、可撤销。
 
 [![CI](https://github.com/Ringophilia/Ringo-Sketchup-MCP/actions/workflows/check.yml/badge.svg)](https://github.com/Ringophilia/Ringo-Sketchup-MCP/actions/workflows/check.yml)
-[![Version](https://img.shields.io/badge/version-1.3.4-2f81f7)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.0.0-2f81f7)](CHANGELOG.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Node](https://img.shields.io/badge/node-22%20%7C%2024-5fa04e?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![SketchUp](https://img.shields.io/badge/SketchUp-Desktop-005f9e)](docs/compatibility.md)
@@ -18,6 +20,8 @@
 </div>
 
 ---
+
+![Ringo SketchUp MCP Demo](docs/assets/demo.gif)
 
 > 💬 *"先确认当前 SketchUp 模型。创建一个 1200 × 600 × 30 毫米的桌面，底部离地 720 毫米；再做四条 40 × 40 毫米的桌腿，起好名字，最后调整相机把视图给我看看。"*
 >
@@ -100,9 +104,13 @@ flowchart LR
 
 **1. 准备环境**：安装桌面 SketchUp 和 Node.js，并**先启动一次 SketchUp**，让它生成用户插件目录。
 
-**2. 获取代码并一键安装**
+**2. 一键安装（发布后可直接 `npx`，或克隆仓库本地安装）**
 
 ```sh
+# 方式 A：免克隆安装（发布到 npm 后可用）
+npx @ringo/sketchup-mcp setup
+
+# 方式 B：克隆仓库安装
 git clone https://github.com/Ringophilia/Ringo-Sketchup-MCP.git
 cd Ringo-Sketchup-MCP
 npm run setup
@@ -170,18 +178,18 @@ doctor 会逐项检查构建、配置、扩展文件、实时连接和版本匹�
 | 🖼 图片与文件 | `view_capture` · `view_export` · `model_save` · `model_export` · `scene_clear` |
 | 🧪 高级 API | `sketchup_run_ruby`（默认关闭） |
 
-每个工具都会返回 `structuredContent`。成功时包含数据、警告、任务 ID、执行耗时和排队耗时；失败时给出明确的错误码。`view_export` 生成的图片不超过 4 MiB 时，也会附带返回图片内容。
+每个工具都带有可读的 `title` 并声明了 `outputSchema`，调用会返回 `structuredContent`（成功时包含数据、警告、任务 ID、执行耗时和排队耗时；失败时给出明确的错误码）。`view_export` 生成的图片不超过 4 MiB 时，也会附带返回图片内容。此外服务还提供工作流 Prompt `sketchup-modeling-workflow`，以及只读 Resources `sketchup://model/info` 和 `sketchup://materials`。
 
 <details>
 <summary><b>📐 模型操作约定（给 Agent 和开发者的要点）</b></summary>
 
 <br/>
 
-- **先读再改**：首次修改前调用 `model_get_info`。服务会记住模型会话，并为后续修改自动补上 `model_id`；切换模型后需要重新读取。创建、选择、分组这类依赖编辑上下文的操作还会检查 `active_path`。
-- **单位**：输入和输出默认都是毫米。创建和增量变换使用父容器坐标；返回的 `transform` 是世界变换（列主序，平移使用请求的单位）。`matrix` 输入会替换局部变换，不要直接复用世界矩阵。
+- **先读再改**：首次修改前调用 `model_get_info`（或读取 `sketchup://model/info`）。服务会记住模型会话，并为后续修改自动补上 `model_id`；切换模型后需要重新读取。创建、选择、分组这类依赖编辑上下文的操作还会检查 `active_path`。
+- **单位**：输入和输出默认都是毫米。`entity_create_cylinder` 使用随 `unit` 换算的 `radius` / `height`（旧字段 `radius_mm` / `height_mm` 仅作毫米兼容保留，不可与新字段混用）。创建和增量变换使用父容器坐标；返回的 `transform` 是世界变换（列主序，平移使用请求的单位）。`matrix` 输入会替换局部变换，不要直接复用世界矩阵。
 - **嵌套与共享**：嵌套实体使用完整 `path` 引用；`parent: {path: [...]}` 指定在哪个容器里创建。共享组件的同一个 ID 可能对应多个路径，这种情况下必须显式提供路径。修改共享定义会影响所有实例；想要独立修改，先对祖先调用 `entity_make_unique`，再重新查询。
 - **批量**：`batch_run` 复用单个工具的参数校验和默认值，所有步骤在同一个 Undo 事务中执行，任一步失败就整体回滚。
-- **大模型分页**：`entity_list` 默认取到一页就返回。`total_exact: false` 表示总数只是下界，沿 `next_offset` 继续翻页；需要精确总数时传 `include_total: true`。遇到数量上限或约 500 ms 的遍历预算时会返回 `truncated: true`，这时应缩小父级范围。
+- **大模型分页与上限**：`entity_list` 默认取到一页就返回，`total_exact: false` 表示总数只是下界，沿 `next_offset` 继续翻页；需要精确总数时传 `include_total: true`，遇到数量上限或约 500 ms 的遍历预算时会返回 `truncated: true`。`selection_get`、`materials_list`、`tags_list` 同样支持 `limit` / `offset` 分页与 `next_offset`；`model_diff` 会按每类 `limit`（默认 500）限制返回条目并给出 `counts` 与 `truncated`。
 - **覆盖保护**：保存和导出默认不覆盖已有文件，需要显式设置 `overwrite: true`。
 
 更多示例见 [使用指南](docs/usage.md)。
@@ -198,7 +206,7 @@ npm run setup -- --profile project-b --name "Project B" --port 9877
 ```
 
 1. 把 `.agent-config/project-a/` 和 `.agent-config/project-b/` 中的服务合并到客户端配置里，得到 `sketchup-project-a` 和 `sketchup-project-b` 两个服务。
-2. 在每个 SketchUp 窗口中打开 **Extensions → Ringo SketchUp MCP → Select Profile**，选择对应的 profile。
+2. 在每个 SketchUp 窗口中打开 **Extensions → Ringo SketchUp MCP → Select Profile**，选择对应的 profile（选择会写入 SketchUp 偏好设置并在重启后保持）。也可在扩展菜单开启 **Auto-Select Free Profile on Conflict**，在端口冲突时自动选择空闲 profile 并通过状态栏提示当前端口与实例。
 3. 让 LLM 修改前先调用目标服务的 `bridge_status`，核对 `data.instance.profile_id` 和 `profile_name`。
 
 > profile ID 只是你自定义的路由标签。各服务之间的 `model_id`、实体路径和快照不能互换，服务也不会根据前台窗口猜测目标。重复的端口会在安装时被直接拒绝。
@@ -273,7 +281,10 @@ npm run doctor -- --profile project-a
 ## 🧪 开发与验证
 
 ```sh
-npm run check            # 构建 + Node 测试
+npm run check            # 类型检查 + Biome lint + 构建 + Node 测试
+npm run lint             # TypeScript 类型检查 + Biome 检查
+npm run format           # 使用 Biome 格式化代码
+npm run test:coverage    # 带覆盖率报告运行 Node 测试
 npm run check:ruby       # Ruby 语法检查（可用 RUBY 指定解释器）
 npm run test:ruby        # Ruby 行为测试（需要 minitest）
 npm run package:rbz      # 生成 RBZ 和 SHA-256 摘要到 release/
@@ -299,10 +310,12 @@ CI 覆盖 **Windows / macOS / Linux × Node 22 / 24**，以及 **Ruby 2.7 / 3.2 
 
 | 文档 | 内容 |
 |---|---|
+| [示例提示词库](docs/prompts.md) | 常用中英文建模、批量操作、分页与多实例提示词模板 |
 | [使用指南](docs/usage.md) | 建模示例、坐标与嵌套、批量操作、大模型查询、错误处理 |
 | [Agent 接入指南](docs/agents.md) | 各客户端的导入步骤与云端接入边界 |
 | [兼容策略](docs/compatibility.md) | 版本原则、能力降级、macOS 说明 |
 | [验证记录](docs/validation.md) | 每个版本的实机验收证据 |
+| [发布与签名指南](docs/publishing.md) | npm 发布、Tag 自动发版与 Trimble RBZ 签名步骤 |
 | [提升计划](docs/improvement-plan.md) | 已知问题与后续路线图 |
 | [更新日志](CHANGELOG.md) | 版本变更 |
 

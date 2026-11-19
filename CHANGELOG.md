@@ -1,5 +1,23 @@
 # Changes
 
+## 2.0.0
+
+- Clear the transitive `hono` and `@hono/node-server` advisories via `npm audit fix` (0 production vulnerabilities).
+- Add capability-negotiated `bridge.progress` notification frames so `batch_run` streams step-by-step MCP `notifications/progress` updates before completion.
+- Publishable npm package with `ringo-sketchup-mcp` CLI binary (`npx @ringo/sketchup-mcp setup`, `doctor`, `config`, `install`, and stdio server), prebuilt `setup` skipping local build when run from `node_modules`, and `--npx` client snippet generation.
+- Add tag-triggered GitHub Release workflow (`.github/workflows/release.yml`), changelog release-notes extractor (`scripts/release-notes.mjs`), and RBZ signing / publishing documentation (`docs/publishing.md`).
+- Add English documentation (`README.en.md`), bilingual prompt library (`docs/prompts.md`), and animated demo GIF (`docs/assets/demo.gif`).
+
+## 1.4.0
+
+- Support unit-aware `radius` and `height` in `entity_create_cylinder`, keep `radius_mm` and `height_mm` as deprecated millimeter aliases, and reject conflicting pairs before reaching the bridge.
+- Drain queued Ruby jobs with a 30 ms UI tick time budget and flush socket responses immediately; record 100-call sequential and concurrent `entity_inspect` timings in `npm run test:performance`.
+- Paginate `selection_get`, `materials_list`, and `tags_list` (`limit`, `offset`, `total`, `next_offset`), and bound `model_diff` per-category arrays with `limit`, `counts`, and `truncated`.
+- Add human-readable `title` and `outputSchema` to every MCP tool, add the `sketchup-modeling-workflow` prompt, and expose read-only `sketchup://model/info` and `sketchup://materials` resources.
+- Use readable Undo transaction labels (such as `MCP: Create Box`), unify 0–255 RGB validation across `entity_set_material` and `materials_set`, deduplicate entity reference validation, and evaluate `sketchup_run_ruby` in an isolated per-call context.
+- Persist selected SketchUp profiles via SketchUp preferences (`Sketchup.read_default` / `write_default`) and add an opt-in extension menu toggle to auto-select a free profile on port conflicts.
+- Modularize MCP tool schemas into `src/tools/`, refactor Ruby `dispatch` into a `HANDLERS` table with `geometry.rb` and `scene.rb` modules, add Biome formatting/linting (`npm run lint`, `npm run format`), add `.rubocop.yml`, and collect Node and Ruby SimpleCov test coverage in CI.
+
 ## 1.3.4
 
 - Update `@modelcontextprotocol/sdk` to 1.32.2 and refresh its transitive dependencies (`body-parser`, `fast-uri`, `hono`, `ip-address`) to clear the published advisories.

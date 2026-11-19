@@ -1,8 +1,24 @@
 {
   "name": "@ringo/sketchup-mcp",
-  "version": "1.3.4",
+  "version": "2.0.0",
   "license": "MIT",
-  "private": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "ringo-sketchup-mcp": "./bin/ringo-sketchup-mcp.mjs"
+  },
+  "files": [
+    "bin/",
+    "dist/",
+    "extension/",
+    "scripts/",
+    "docs/",
+    "LICENSE",
+    "README.md",
+    "README.en.md",
+    "CHANGELOG.md"
+  ],
   "description": "Local SketchUp MCP bridge for ChatGPT, Codex and other MCP agents on Windows and macOS",
   "repository": {
     "type": "git",
@@ -14,11 +30,15 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build",
     "start": "node dist/mcp-server.js",
     "dev": "tsx src/mcp-server.ts",
     "test": "node --test --import tsx \"test/**/*.test.ts\"",
-    "lint": "tsc -p tsconfig.json --noEmit",
-    "check": "npm run build && npm test",
+    "test:coverage": "node --test --experimental-test-coverage --import tsx \"test/**/*.test.ts\"",
+    "format": "biome format --write bin src test scripts",
+    "format:check": "biome format bin src test scripts",
+    "lint": "tsc -p tsconfig.json --noEmit && biome check bin src test scripts",
+    "check": "npm run lint && npm run build && npm test",
     "check:ruby": "node scripts/check-ruby.mjs",
     "test:ruby": "node scripts/test-ruby.mjs",
     "install:extension": "node scripts/install.mjs",
@@ -38,6 +58,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.8",
     "@types/node": "^22.0.0",
     "fflate": "^0.8.3",
     "tsx": "^4.19.0",

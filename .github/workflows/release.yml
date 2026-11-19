@@ -1,0 +1,67 @@
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v2.0.0)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+      - name: Verify tag matches package.json version
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          TAG_VER="${TAG#v}"
+          PKG_VER="$(node -p "require('./package.json').version")"
+          if [ "$TAG_VER" != "$PKG_VER" ]; then
+            echo "Tag $TAG ($TAG_VER) does not match package.json version $PKG_VER" >&2
+            exit 1
+          fi
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "RELEASE_VERSION=$PKG_VER" >> "$GITHUB_ENV"
+      - run: npm ci --fetch-retries=5 --fetch-retry-factor=2 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
+      - run: npm run check
+      - run: npm run check:ruby
+      - run: npm run test:ruby
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run package:rbz
+      - name: Extract release notes
+        run: node scripts/release-notes.mjs "$RELEASE_VERSION" > release-notes.md
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            release/ringo-sketchup-mcp-*.rbz \
+            release/ringo-sketchup-mcp-*.rbz.sha256 \
+            --title "Ringo SketchUp MCP $RELEASE_TAG" \
+            --notes-file release-notes.md
+      - name: Publish npm package (if NPM_TOKEN configured)
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NODE_AUTH_TOKEN" ]; then
+            npm publish --access public
+          else
+            echo "NPM_TOKEN not configured; skipping npm publish."
+          fi

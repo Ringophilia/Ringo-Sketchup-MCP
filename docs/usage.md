@@ -58,7 +58,7 @@
 
 需要总数时传 `include_total:true`。数量上限 `scan_limit` 默认 100,000；还存在约 500 ms 的协作式遍历预算。`truncated:true` 表示扫描未完成，应缩小父级范围或减少深度。增加数量上限不能取消时间预算。分页期间如果模型发生变化，应从头查询，避免偏移错位。
 
-`model_stats` 也会报告 `total_exact:false`。快照无法完整遍历时会明确失败，避免把未扫描的对象误报为删除。
+`model_stats` 也会报告 `total_exact:false`。快照无法完整遍历时会明确失败，避免把未扫描的对象误报为删除。`selection_get`、`materials_list` 和 `tags_list` 同样支持 `limit` / `offset` 分页并返回 `total` 与 `next_offset`；`model_diff` 按每类结果上限 `limit`（默认 500）返回，并在超出上限时给出 `counts`、警告和 `truncated: true`。
 
 ## 图片、文件与高级脚本
 
@@ -66,7 +66,7 @@
 
 `view_export` 用于保存 PNG/JPG，路径必须绝对，默认不覆盖。`model_save` 保存 SKP，`model_export` 使用宿主安装的导出器。不同 SketchUp 版本和授权可能支持不同格式；以工具的实际返回结果为准。
 
-`sketchup_run_ruby` 默认关闭。开启后可以运行完整 SketchUp API，且无法可靠强制取消正在运行的脚本。默认自动事务，脚本内部不要再调用 `start_operation`；自行管理事务时显式传 `transaction:false`。
+`sketchup_run_ruby` 默认关闭。开启后可以运行完整 SketchUp API，每次调用在独立的求值上下文中执行（脚本内定义的局部变量和辅助方法不会在多次调用之间残留），且无法可靠强制取消正在运行的脚本。默认自动事务，脚本内部不要再调用 `start_operation`；自行管理事务时显式传 `transaction:false`。
 
 ## 常见错误
 
@@ -100,7 +100,7 @@ npm run setup -- --profile project-b --name "Project B" --port 9877
 
 在 `.agent-config/project-a/` 和 `.agent-config/project-b/` 中分别找到生成的 `mcp.json`、`codex.toml` 和 `vscode.json`，合并两个服务。两个服务会分别显示为 `sketchup-project-a` 和 `sketchup-project-b`。profile ID 是用户自定义的路由标签。
 
-打开两个 SketchUp 后，在每个窗口分别选择 **Extensions → Ringo SketchUp MCP → Select Profile**。不要让两个进程都使用 default；如果端口冲突，扩展会在状态栏提示选择另一个 profile。
+打开两个 SketchUp 后，在每个窗口分别选择 **Extensions → Ringo SketchUp MCP → Select Profile**（选择会保存在 SketchUp 偏好设置中，下次启动自动使用该 profile）。如果需要在第二个 SketchUp 启动遇到端口冲突时自动占用下一个空闲 profile，可在同一菜单勾选 **Auto-Select Free Profile on Conflict**，状态栏会提示实际选中的实例和端口。不要让两个进程都使用 default；如果端口冲突且未开启自动选择，扩展会在状态栏提示选择另一个 profile。
 
 给 LLM 的安全指令应该明确目标：
 
