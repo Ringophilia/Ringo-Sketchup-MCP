@@ -8,6 +8,8 @@ import { fakeBridge, hello, respond, TOKEN } from './fixture.js';
 
 test('MCP structured results, RPC errors, resources and validation are unambiguous', async (t) => {
   const seen: any[] = [];
+  let releaseBatchResponse: (() => void) | undefined;
+  let batchFallbackTimer: ReturnType<typeof setTimeout> | undefined;
   const b = await fakeBridge((r, s) => {
     if (hello(r, s)) return;
     if (r.method === 'model.get_info') {
@@ -38,6 +40,19 @@ test('MCP structured results, RPC errors, resources and validation are unambiguo
         `${JSON.stringify({ jsonrpc: '2.0', id: r.id, error: { code: -32008, message: 'stale entity' } })}\n`,
       );
     } else if (r.method === 'batch.run') {
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        if (batchFallbackTimer) {
+          clearTimeout(batchFallbackTimer);
+          batchFallbackTimer = undefined;
+        }
+        respond(s, r, { success: true, data: r.params, warnings: [], operation_id: r.id });
+      };
+      releaseBatchResponse = release;
+      batchFallbackTimer = setTimeout(release, 5000);
+      batchFallbackTimer.unref();
       s.write(
         `${JSON.stringify({
           jsonrpc: '2.0',
@@ -62,16 +77,16 @@ test('MCP structured results, RPC errors, resources and validation are unambiguo
           },
         })}\n`,
       );
-      setTimeout(
-        () => respond(s, r, { success: true, data: r.params, warnings: [], operation_id: r.id }),
-        15,
-      );
     } else {
       respond(s, r, { success: true, data: r.params, warnings: [], operation_id: r.id });
     }
   });
   const c = new Client({ name: 'test', version: '1' }, { capabilities: {} });
   t.after(async () => {
+    if (batchFallbackTimer) {
+      clearTimeout(batchFallbackTimer);
+      batchFallbackTimer = undefined;
+    }
     await c.close();
     await b.close();
   });
@@ -190,7 +205,12 @@ test('MCP structured results, RPC errors, resources and validation are unambiguo
       },
     },
     undefined,
-    { onprogress: (p) => progressEvents.push(p) },
+    {
+      onprogress: (p) => {
+        progressEvents.push(p);
+        if (p.progress === 2 && p.total === 2) releaseBatchResponse?.();
+      },
+    },
   );
   assert.equal(seen[5].method, 'batch.run');
   assert.equal(seen[5].params.commands[0].method, 'entity.create_box');

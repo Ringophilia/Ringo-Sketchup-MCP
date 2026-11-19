@@ -99,17 +99,35 @@ test('advertises progress_frames capability and streams progress notifications b
 });
 test('timeouts send cancellation and never replay', async (t) => {
   const seen: string[] = [];
+  let cancelTimer: ReturnType<typeof setTimeout> | undefined;
+  let resolveCancel: (() => void) | undefined;
+  const cancelReceived = new Promise<void>((resolve, reject) => {
+    cancelTimer = setTimeout(() => reject(new Error('Timed out waiting for bridge.cancel')), 1000);
+    cancelTimer.unref();
+    resolveCancel = () => {
+      if (cancelTimer) {
+        clearTimeout(cancelTimer);
+        cancelTimer = undefined;
+      }
+      resolve();
+    };
+  });
   const b = await fakeBridge((r, s) => {
     if (hello(r, s)) return;
     seen.push(r.method);
+    if (r.method === 'bridge.cancel') resolveCancel?.();
   });
   const c = new SketchupClient({ port: b.port, token: TOKEN, timeoutMs: 120 });
   t.after(async () => {
+    if (cancelTimer) {
+      clearTimeout(cancelTimer);
+      cancelTimer = undefined;
+    }
     await c.close();
     await b.close();
   });
   await assert.rejects(c.call('mutate'), /timed out/);
-  await new Promise((r) => setTimeout(r, 30));
+  await cancelReceived;
   assert.deepEqual(seen, ['mutate', 'bridge.cancel']);
 });
 test('authentication failure is reported immediately', async (t) => {

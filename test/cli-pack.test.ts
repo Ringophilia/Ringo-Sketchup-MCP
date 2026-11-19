@@ -45,8 +45,8 @@ test('agentConfigs supports npx mode without leaking credentials', () => {
 test('npm pack dry-run includes runtime, extension and docs while excluding local artifacts', async () => {
   const { stdout } =
     process.platform === 'win32'
-      ? await run('cmd.exe', ['/d', '/s', '/c', 'npm pack --dry-run --json'])
-      : await run('npm', ['pack', '--dry-run', '--json']);
+      ? await run('cmd.exe', ['/d', '/s', '/c', 'npm pack --dry-run --json --ignore-scripts'])
+      : await run('npm', ['pack', '--dry-run', '--json', '--ignore-scripts']);
   const packed = JSON.parse(stdout);
   const paths = new Set((packed[0]?.files ?? []).map((file: { path: string }) => file.path));
 
